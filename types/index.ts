@@ -10,7 +10,6 @@ import type {
   BookingService,
   Bill,
   BillPayment,
-  HousekeepingTask,
   AuditLog,
   UserRole,
   RoomStatus,
@@ -18,7 +17,7 @@ import type {
   BookingSource,
   IdType,
   BillStatus,
-  HousekeepingStatus,
+  Prisma,
 } from "@prisma/client";
 
 export type {
@@ -33,7 +32,6 @@ export type {
   BookingService,
   Bill,
   BillPayment,
-  HousekeepingTask,
   AuditLog,
   UserRole,
   RoomStatus,
@@ -41,7 +39,6 @@ export type {
   BookingSource,
   IdType,
   BillStatus,
-  HousekeepingStatus,
 };
 
 // Extended types with relations
@@ -54,13 +51,19 @@ export type RoomTypeWithPrices = RoomType & {
   rooms: Room[];
 };
 
-export type BookingWithRelations = Booking & {
-  room: RoomWithType;
-  guest: Guest;
-  creator: Pick<User, "id" | "fullName" | "email">;
-  bookingServices: BookingService[];
-  bill: Bill | null;
-};
+export type BookingWithRelations = Prisma.BookingGetPayload<{
+  include: {
+    guest: true;
+    room: {
+      include: {
+        roomType: true;
+      };
+    };
+    bookingServices: true;
+    creator: true;
+    bill: true;
+  };
+}>;
 
 export type BillWithRelations = Bill & {
   booking: BookingWithRelations;
@@ -72,11 +75,6 @@ export type GuestWithHistory = Guest & {
   bookings: BookingWithRelations[];
 };
 
-export type HousekeepingTaskWithRelations = HousekeepingTask & {
-  room: RoomWithType;
-  assignee: Pick<User, "id" | "fullName"> | null;
-  booking: Pick<Booking, "id" | "bookingCode"> | null;
-};
 
 // Session user type (returned by NextAuth)
 export type SessionUser = {

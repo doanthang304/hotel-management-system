@@ -16,15 +16,6 @@ export default withAuth(
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    // HOUSEKEEPER chỉ vào được dashboard và housekeeping
-    if (role === "HOUSEKEEPER") {
-      const allowed = ["/dashboard", "/housekeeping"];
-      const isAllowed = allowed.some((p) => pathname.startsWith(p));
-      if (!isAllowed) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
-
     return NextResponse.next();
   },
   {

@@ -15,18 +15,16 @@ type Room = {
   checkOutDate?: string;
 };
 
-const statusColors = {
+const statusColors: Record<RoomStatus, string> = {
   AVAILABLE: "bg-green-500/10 text-green-500 border-green-500/20",
   OCCUPIED: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  CLEANING: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20",
   MAINTENANCE: "bg-red-500/10 text-red-500 border-red-500/20",
   BLOCKED: "bg-gray-500/10 text-gray-500 border-gray-500/20",
 };
 
-const statusLabels = {
+const statusLabels: Record<RoomStatus, string> = {
   AVAILABLE: "Trống",
   OCCUPIED: "Đang ở",
-  CLEANING: "Đang dọn",
   MAINTENANCE: "Bảo trì",
   BLOCKED: "Khóa",
 };

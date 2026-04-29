@@ -47,7 +47,6 @@ export async function GET() {
         totalRooms,
         occupiedRooms: counts["OCCUPIED"] ?? 0,
         availableRooms: counts["AVAILABLE"] ?? 0,
-        cleaningRooms: counts["CLEANING"] ?? 0,
         maintenanceRooms: counts["MAINTENANCE"] ?? 0,
         checkInsToday,
         checkOutsToday,

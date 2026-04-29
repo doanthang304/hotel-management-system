@@ -24,7 +24,6 @@ model Hotel {
   guests            Guest[]
   bookings          Booking[]
   serviceCatalog    ServiceCatalog[]
-  housekeepingTasks HousekeepingTask[]
   auditLogs         AuditLog[]
 
   @@map("hotels")
@@ -47,7 +46,6 @@ model User {
   billsFinalized     Bill[]             @relation("BillFinalizedBy")
   billPayments       BillPayment[]
   bookingServices    BookingService[]
-  housekeepingTasks  HousekeepingTask[]
   auditLogs          AuditLog[]
 
   @@unique([hotelId, email])
@@ -101,7 +99,6 @@ model Room {
   hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   roomType          RoomType           @relation(fields: [roomTypeId], references: [id])
   bookings          Booking[]
-  housekeepingTasks HousekeepingTask[]
 
   @@unique([hotelId, roomNumber])
   @@map("rooms")
@@ -159,7 +156,6 @@ model Booking {
   creator         User             @relation("BookingCreatedBy", fields: [createdBy], references: [id])
   bookingServices BookingService[]
   bill            Bill?
-  housekeepingTasks HousekeepingTask[]
 
   @@map("bookings")
 }
@@ -240,28 +236,6 @@ model BillPayment {
   @@map("bill_payments")
 }
 
-model HousekeepingTask {
-  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId     String              @db.Uuid
-  roomId      String              @db.Uuid
-  bookingId   String?             @db.Uuid
-  assignedTo  String?             @db.Uuid
-  status      HousekeepingStatus  @default(PENDING)
-  priority    Int                 @default(1) @db.SmallInt
-  notes       String?
-  scheduledAt DateTime?
-  completedAt DateTime?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  room     Room     @relation(fields: [roomId], references: [id])
-  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  assignee User?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
-
-  @@map("housekeeping_tasks")
-}
-
 model AuditLog {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hotelId    String   @db.Uuid
@@ -283,13 +257,11 @@ enum UserRole {
   OWNER
   MANAGER
   RECEPTIONIST
-  HOUSEKEEPER
 }
 
 enum RoomStatus {
   AVAILABLE
   OCCUPIED
-  CLEANING
   MAINTENANCE
   BLOCKED
 }
@@ -326,9 +298,3 @@ enum BillStatus {
   SETTLED
 }
 
-enum HousekeepingStatus {
-  PENDING
-  IN_PROGRESS
-  DONE
-  SKIPPED
-}

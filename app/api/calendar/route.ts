@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       status: b.status,
       bookingCode: b.bookingCode,
       roomNumber: b.room.roomNumber,
+      source: b.source,
     }));
 
     const roomList = rooms.map((r) => ({

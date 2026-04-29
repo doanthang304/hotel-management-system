@@ -206,11 +206,11 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Giá mỗi đêm</p>
-                <p className="font-semibold">{formatVND(booking.roomRate)}</p>
+                <p className="font-semibold">{formatVND(Number(booking.roomRate))}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tổng tiền phòng</p>
-                <p className="font-bold text-lg text-primary">{formatVND(booking.roomRate * booking.numNights)}</p>
+                <p className="font-bold text-lg text-primary">{formatVND(Number(booking.roomRate) * booking.numNights)}</p>
               </div>
             </CardContent>
           </Card>

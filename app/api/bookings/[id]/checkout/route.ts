@@ -27,21 +27,24 @@ export async function POST(
       return NextResponse.json({ error: "Booking không ở trạng thái đang ở" }, { status: 400 });
     }
 
-    const result = await prisma.$transaction([
-      prisma.booking.update({
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedBooking = await tx.booking.update({
         where: { id: id },
         data: {
           status: "CHECKED_OUT",
           actualCheckOut: new Date(),
-        }
-      }),
-      prisma.room.update({
-        where: { id: booking.roomId },
-        data: { status: "CLEANING" }
-      })
-    ]);
+        },
+      });
 
-    return NextResponse.json({ data: result[0] });
+      await tx.room.update({
+        where: { id: booking.roomId },
+        data: { status: "AVAILABLE" }
+      });
+
+      return updatedBooking;
+    });
+
+    return NextResponse.json({ data: result });
   } catch (error) {
     console.error("POST /api/bookings/[id]/checkout error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

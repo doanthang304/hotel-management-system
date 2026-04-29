@@ -29,7 +29,6 @@ const mainNav = [
   { href: "/guests",      label: "Khách hàng",  icon: Users },
   { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
   { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
-  { href: "/housekeeping",label: "Buồng phòng", icon: Brush },
 ];
 
 const settingsNav = [
