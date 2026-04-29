@@ -142,13 +142,13 @@ export default function BookingsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px]">Mã</TableHead>
+              <TableHead className="w-25">Mã</TableHead>
               <TableHead>Khách hàng</TableHead>
               <TableHead>Phòng</TableHead>
               <TableHead>Thời gian</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-right">Tổng tiền</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-12.5"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

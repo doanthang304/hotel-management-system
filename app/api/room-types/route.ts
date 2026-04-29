@@ -63,18 +63,6 @@ export async function POST(req: NextRequest) {
           amenities: [],
         },
       });
-
-      if (pricePerNight != null) {
-        await tx.roomPrice.create({
-          data: {
-            roomTypeId: rt.id,
-            label: "Giá mặc định",
-            pricePerNight: Number(pricePerNight),
-            isDefault: true,
-          },
-        });
-      }
-
       return rt;
     });
 

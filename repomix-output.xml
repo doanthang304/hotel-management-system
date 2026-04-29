@@ -129,6 +129,9 @@ public/next.svg
 public/vercel.svg
 public/window.svg
 README.md
+scripts/check-calendar.ts
+scripts/check-db.ts
+scripts/check-users.ts
 scripts/fix-room-status.ts
 scripts/test-api.ts
 tsconfig.json
@@ -137,6 +140,86 @@ types/index.ts
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="scripts/check-calendar.ts">
+import { prisma } from "../lib/prisma";
+
+async function main() {
+  const hotel = await prisma.hotel.findFirst({ where: { name: "Khách sạn Test" } });
+  if (!hotel) return console.log("Hotel not found");
+  
+  const hotelId = hotel.id;
+  const start = new Date("2026-03-30T00:00:00Z");
+  const end = new Date("2026-06-27T00:00:00Z");
+  
+  const [rooms, bookings] = await Promise.all([
+      prisma.room.findMany({
+        where: { hotelId },
+        include: { roomType: { select: { name: true } } },
+        orderBy: { roomNumber: "asc" },
+      }),
+      prisma.booking.findMany({
+        where: {
+          hotelId,
+          checkInDate: { lte: end },
+          checkOutDate: { gte: start },
+          status: { not: "CANCELLED" },
+        },
+        include: {
+          guest: { select: { fullName: true } },
+          room: { select: { roomNumber: true } },
+        },
+      }),
+    ]);
+    
+    console.log("Rooms found:", rooms.length);
+    console.log("Bookings found:", bookings.length);
+    rooms.forEach(r => console.log(`- Room ${r.roomNumber}`));
+    bookings.forEach(b => console.log(`- Booking for ${b.guest.fullName} in room ${b.room.roomNumber}`));
+}
+
+main().catch(console.error);
+</file>
+
+<file path="scripts/check-db.ts">
+import { prisma } from "../lib/prisma";
+
+async function main() {
+  const rooms = await prisma.room.count();
+  const bookings = await prisma.booking.count();
+  const roomTypes = await prisma.roomType.count();
+  const hotels = await prisma.hotel.findMany();
+  
+  console.log("Hotels:", hotels.length);
+  console.log("Room Types:", roomTypes);
+  console.log("Rooms:", rooms);
+  console.log("Bookings:", bookings);
+  
+  if (hotels.length > 0) {
+    const firstHotel = hotels[0];
+    const hotelRooms = await prisma.room.findMany({ where: { hotelId: firstHotel.id } });
+    console.log(`Rooms for hotel ${firstHotel.name}:`, hotelRooms.length);
+  }
+}
+
+main().catch(console.error);
+</file>
+
+<file path="scripts/check-users.ts">
+import { prisma } from "../lib/prisma";
+
+async function main() {
+  const users = await prisma.user.findMany({
+    include: { hotel: true }
+  });
+  console.log("Users and their hotels:");
+  users.forEach(u => {
+    console.log(`- ${u.fullName} (${u.email}): Hotel ID ${u.hotelId} (${u.hotel.name})`);
+  });
+}
+
+main().catch(console.error);
+</file>
 
 <file path="AGENTS.md">
 <!-- BEGIN:nextjs-agent-rules -->
@@ -2062,93 +2145,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data });
   } catch (error) {
     console.error("GET /api/reports/revenue error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-</file>
-
-<file path="app/api/room-types/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    const roomTypes = await prisma.roomType.findMany({
-      where: { hotelId: session.user.hotelId },
-      include: {
-        roomPrices: {
-          where: { isDefault: true },
-        },
-        _count: {
-          select: { rooms: true }
-        }
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    return NextResponse.json({ data: roomTypes });
-  } catch (error) {
-    console.error("GET /api/room-types error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    const body = await req.json();
-    const { name, maxOccupancy, pricePerNight } = body;
-
-    if (!name || maxOccupancy == null || pricePerNight == null) {
-      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
-    }
-
-    // Check if name already exists
-    const existing = await prisma.roomType.findUnique({
-      where: {
-        hotelId_name: {
-          hotelId: session.user.hotelId,
-          name: name.trim(),
-        }
-      }
-    });
-
-    if (existing) {
-      return NextResponse.json({ error: "Tên loại phòng đã tồn tại" }, { status: 400 });
-    }
-
-    const newRoomType = await prisma.$transaction(async (tx) => {
-      const rt = await tx.roomType.create({
-        data: {
-          hotelId: session.user.hotelId,
-          name: name.trim(),
-          maxOccupancy: Number(maxOccupancy),
-          amenities: [],
-        },
-      });
-
-      await tx.roomPrice.create({
-        data: {
-          roomTypeId: rt.id,
-          label: "Giá mặc định",
-          pricePerNight: Number(pricePerNight),
-          isDefault: true,
-        },
-      });
-
-      return rt;
-    });
-
-    return NextResponse.json({ data: newRoomType });
-  } catch (error) {
-    console.error("POST /api/room-types error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -5189,365 +5185,10 @@ run();
 }
 </file>
 
-<file path="app/(dashboard)/onboarding/page.tsx">
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Building2, 
-  BedDouble, 
-  Users, 
-  ArrowRight,
-  CheckCircle2,
-  Loader2,
-  Plus
-} from "lucide-react";
-import { toast } from "sonner";
-import { formatVND } from "@/lib/utils";
-
-type RoomType = {
-  id: string;
-  name: string;
-  maxOccupancy: number;
-  roomPrices: { pricePerNight: number }[];
-};
-
-type Room = {
-  id: string;
-  roomNumber: string;
-  roomType: { name: string };
-};
-
-export default function OnboardingPage() {
-  const router = useRouter();
-  const [step, setStep] = useState(1);
-  
-  // Data
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
-  // Forms
-  const [rtName, setRtName] = useState("");
-  const [rtPrice, setRtPrice] = useState("");
-  const [rtOccupancy, setRtOccupancy] = useState("2");
-  const [loadingRt, setLoadingRt] = useState(false);
-
-  const [rNumber, setRNumber] = useState("");
-  const [rTypeId, setRTypeId] = useState("");
-  const [loadingR, setLoadingR] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoadingData(true);
-    try {
-      const [rtRes, rRes] = await Promise.all([
-        fetch("/api/room-types"),
-        fetch("/api/rooms")
-      ]);
-      if (rtRes.ok) {
-        const rtJson = await rtRes.json();
-        setRoomTypes(rtJson.data || []);
-      }
-      if (rRes.ok) {
-        const rJson = await rRes.json();
-        setRooms(rJson.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching onboarding data:", error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  const handleCreateRoomType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rtName || !rtPrice) return toast.error("Vui lòng điền đủ thông tin");
-    setLoadingRt(true);
-    try {
-      const res = await fetch("/api/room-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: rtName,
-          pricePerNight: Number(rtPrice),
-          maxOccupancy: Number(rtOccupancy),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
-      toast.success("Tạo loại phòng thành công");
-      setRtName("");
-      setRtPrice("");
-      setRoomTypes([...roomTypes, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoadingRt(false);
-    }
-  };
-
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rNumber || !rTypeId) return toast.error("Vui lòng nhập số phòng và chọn loại phòng");
-    setLoadingR(true);
-    try {
-      const res = await fetch("/api/rooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomNumber: rNumber,
-          roomTypeId: rTypeId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
-      toast.success(`Đã tạo phòng ${rNumber}`);
-      setRNumber(""); // Reset cho phòng tiếp theo
-      setRooms([...rooms, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoadingR(false);
-    }
-  };
-
-  const handleComplete = () => {
-    toast.success("Thiết lập hoàn tất!");
-    router.push("/dashboard");
-  };
-
-  return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] py-8">
-      <Card className="w-full max-w-3xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Thiết lập Tiny HMS</CardTitle>
-          <CardDescription>Hoàn thành các bước cơ bản để bắt đầu sử dụng.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {/* Progress bar */}
-          <div className="flex justify-between relative px-8">
-            <div className="absolute top-1/2 left-8 right-8 h-0.5 bg-slate-200 -z-10 -translate-y-1/2"></div>
-            {[1, 2, 3].map((s) => (
-              <div 
-                key={s} 
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 bg-white ${
-                  step >= s ? "border-primary text-primary" : "border-slate-300 text-slate-300"
-                }`}
-              >
-                {step > s ? <CheckCircle2 className="h-6 w-6" /> : s}
-              </div>
-            ))}
-          </div>
-
-          {/* STEP 1 */}
-          {step === 1 && (
-            <div className="space-y-6 py-4 text-center">
-              <Building2 className="h-16 w-16 mx-auto text-primary opacity-20" />
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Thông tin khách sạn</h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Chào mừng bạn đến với Tiny HMS. Để phần mềm hoạt động đúng chức năng cốt lõi (Lịch phòng), bạn cần thiết lập ít nhất 1 loại phòng và 1 phòng.
-                </p>
-              </div>
-              <Button size="lg" onClick={() => setStep(2)}>
-                Bắt đầu thiết lập <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* STEP 2 */}
-          {step === 2 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="text-center space-y-2">
-                <BedDouble className="h-12 w-12 mx-auto text-primary opacity-20" />
-                <h3 className="text-xl font-semibold">Tạo Loại Phòng</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ví dụ: Standard, Deluxe, Ban Công, Giường đôi...
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Form */}
-                <form onSubmit={handleCreateRoomType} className="space-y-4 rounded-lg border p-4 bg-slate-50/50">
-                  <div className="space-y-2">
-                    <Label>Tên loại phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: Phòng Standard" 
-                      value={rtName} 
-                      onChange={(e) => setRtName(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Giá mặc định (VNĐ) (*)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="VD: 500000" 
-                      value={rtPrice} 
-                      onChange={(e) => setRtPrice(e.target.value)} 
-                      required 
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Số khách tối đa</Label>
-                    <Input 
-                      type="number" 
-                      value={rtOccupancy} 
-                      onChange={(e) => setRtOccupancy(e.target.value)} 
-                      min="1"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loadingRt}>
-                    {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Thêm loại phòng
-                  </Button>
-                </form>
-
-                {/* List */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Danh sách đã tạo ({roomTypes.length})</h4>
-                  <div className="border rounded-lg bg-white overflow-y-auto max-h-[300px]">
-                    {roomTypes.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        Chưa có loại phòng nào
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {roomTypes.map((rt) => (
-                          <div key={rt.id} className="p-3 text-sm flex justify-between items-center hover:bg-slate-50">
-                            <div>
-                              <p className="font-medium">{rt.name}</p>
-                              <p className="text-xs text-muted-foreground">Tối đa: {rt.maxOccupancy} khách</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-emerald-600">
-                                {rt.roomPrices?.[0] ? formatVND(rt.roomPrices[0].pricePerNight) : 'Chưa có giá'}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
-                <Button 
-                  onClick={() => setStep(3)} 
-                  disabled={roomTypes.length === 0}
-                >
-                  Tiếp theo <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3 */}
-          {step === 3 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="text-center space-y-2">
-                <Users className="h-12 w-12 mx-auto text-primary opacity-20" />
-                <h3 className="text-xl font-semibold">Tạo Phòng</h3>
-                <p className="text-sm text-muted-foreground">
-                  Thêm từng phòng và gắn vào loại phòng tương ứng.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Form */}
-                <form onSubmit={handleCreateRoom} className="space-y-4 rounded-lg border p-4 bg-slate-50/50">
-                  <div className="space-y-2">
-                    <Label>Số phòng/Tên phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: 101, P101, R101..." 
-                      value={rNumber} 
-                      onChange={(e) => setRNumber(e.target.value)} 
-                      required 
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Thuộc loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn loại phòng..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roomTypes.map(rt => (
-                          <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
-                    {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Thêm phòng này
-                  </Button>
-                </form>
-
-                {/* List */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Phòng đã tạo ({rooms.length})</h4>
-                  <div className="border rounded-lg bg-white overflow-y-auto max-h-[300px]">
-                    {rooms.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        Chưa có phòng nào
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {rooms.map((r) => (
-                          <div key={r.id} className="p-3 text-sm flex justify-between items-center hover:bg-slate-50">
-                            <span className="font-bold text-base">{r.roomNumber}</span>
-                            <span className="text-muted-foreground bg-slate-100 px-2 py-0.5 rounded text-xs">
-                              {r.roomType.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(2)}>Quay lại</Button>
-                <Button 
-                  onClick={handleComplete}
-                  disabled={rooms.length === 0}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  Hoàn tất thiết lập
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-</file>
-
 <file path="app/(dashboard)/rooms/page.tsx">
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatVND } from "@/lib/utils";
 import { 
   Table, 
   TableBody, 
@@ -5562,6 +5203,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 
 type Room = {
   id: string;
@@ -5609,7 +5251,7 @@ export default function RoomsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Quản lý Phòng</h2>
-        <Button disabled>
+        <Button render={<Link href="/onboarding" />} nativeButton={false}>
           <Plus className="mr-2 h-4 w-4" /> Thêm phòng
         </Button>
       </div>
@@ -5637,7 +5279,6 @@ export default function RoomsPage() {
                 <TableRow>
                   <TableHead>Số phòng</TableHead>
                   <TableHead>Hạng phòng</TableHead>
-                  <TableHead>Giá mặc định</TableHead>
                   <TableHead>Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
@@ -5659,9 +5300,6 @@ export default function RoomsPage() {
                     <TableRow key={room.id}>
                       <TableCell className="font-bold">P{room.roomNumber}</TableCell>
                       <TableCell>{room.roomType.name}</TableCell>
-                      <TableCell>
-                        {formatVND(room.roomType.roomPrices.find(p => p.isDefault)?.pricePerNight || 0)}
-                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusVariants[room.status]}>
                           {statusLabels[room.status]}
@@ -5882,217 +5520,6 @@ export async function POST(
 }
 </file>
 
-<file path="app/api/bookings/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { generateBookingCode, checkRoomAvailability } from "@/lib/booking-code";
-import { z } from "zod";
-
-const BookingCreateSchema = z.object({
-  roomId: z.string().uuid(),
-  guestId: z.string().uuid().optional(),
-  // New guest fields
-  guestFullName: z.string().min(1).optional(),
-  guestPhone: z.string().optional(),
-  guestIdNumber: z.string().optional(),
-  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]).optional(),
-  guestNationality: z.string().optional(),
-  guestIsVip: z.boolean().optional(),
-  // Booking fields
-  checkInDate: z.string(),
-  checkOutDate: z.string(),
-  numNights: z.number().int().min(1),
-  roomRate: z.number().min(0),
-  depositAmount: z.number().min(0).default(0),
-  source: z.enum(["DIRECT", "PHONE", "WALKIN", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("DIRECT"),
-  specialRequests: z.string().optional(),
-  internalNotes: z.string().optional(),
-});
-
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const search = searchParams.get("search");
-  const dateFrom = searchParams.get("dateFrom");
-  const dateTo = searchParams.get("dateTo");
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
-
-  try {
-    const where: Record<string, unknown> = { hotelId: session.user.hotelId };
-
-    if (status && status !== "ALL") {
-      where.status = status;
-    }
-    if (dateFrom || dateTo) {
-      where.checkInDate = {
-        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-        ...(dateTo ? { lte: new Date(dateTo) } : {}),
-      };
-    }
-    if (search) {
-      where.OR = [
-        { bookingCode: { contains: search, mode: "insensitive" } },
-        { guest: { fullName: { contains: search, mode: "insensitive" } } },
-        { guest: { phone: { contains: search } } },
-        { room: { roomNumber: { contains: search, mode: "insensitive" } } },
-      ];
-    }
-
-    const [bookings, total] = await Promise.all([
-      prisma.booking.findMany({
-        where,
-        include: {
-          room: { include: { roomType: true } },
-          guest: true,
-          creator: { select: { id: true, fullName: true } },
-          bill: true,
-        },
-        orderBy: { checkInDate: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.booking.count({ where }),
-    ]);
-
-    return NextResponse.json({ data: bookings, total, page, limit });
-  } catch (error) {
-    console.error("GET /api/bookings error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    const body = await req.json();
-    const parsed = BookingCreateSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
-    }
-
-    const data = parsed.data;
-    const checkIn = new Date(data.checkInDate);
-    const checkOut = new Date(data.checkOutDate);
-
-    if (checkOut <= checkIn) {
-      return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });
-    }
-
-    // Check availability
-    const available = await checkRoomAvailability(data.roomId, checkIn, checkOut);
-    if (!available) {
-      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
-    }
-
-    const hotelId = session.user.hotelId;
-
-    // Get or create guest
-    let guestId = data.guestId;
-    if (!guestId) {
-      if (!data.guestFullName) {
-        return NextResponse.json({ error: "Cần thông tin khách hàng" }, { status: 400 });
-      }
-      const guest = await prisma.guest.create({
-        data: {
-          hotelId,
-          fullName: data.guestFullName,
-          phone: data.guestPhone,
-          idNumber: data.guestIdNumber,
-          idType: data.guestIdType || "CCCD",
-          nationality: data.guestNationality || "Việt Nam",
-          isVip: data.guestIsVip || false,
-        },
-      });
-      guestId = guest.id;
-    }
-
-    let bookingCode = "";
-    let booking: Awaited<ReturnType<typeof prisma.booking.create>> | null = null;
-    const maxCreateAttempts = 5;
-
-    for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
-      bookingCode = await generateBookingCode(hotelId);
-      try {
-        booking = await prisma.booking.create({
-          data: {
-            hotelId,
-            roomId: data.roomId,
-            guestId,
-            createdBy: session.user.id,
-            bookingCode,
-            checkInDate: checkIn,
-            checkOutDate: checkOut,
-            numNights: data.numNights,
-            roomRate: data.roomRate,
-            depositAmount: data.depositAmount,
-            status: "PENDING",
-            source: data.source,
-            specialRequests: data.specialRequests,
-            internalNotes: data.internalNotes,
-          },
-          include: {
-            room: { include: { roomType: true } },
-            guest: true,
-          },
-        });
-        break;
-      } catch (createError) {
-        const target = createError instanceof Prisma.PrismaClientKnownRequestError
-          ? createError.meta?.target
-          : undefined;
-        const targetFields = Array.isArray(target)
-          ? target
-          : typeof target === "string"
-            ? [target]
-            : [];
-
-        const isBookingCodeCollision =
-          createError instanceof Prisma.PrismaClientKnownRequestError &&
-          createError.code === "P2002" &&
-          targetFields.some((field) => field.includes("bookingCode"));
-
-        if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
-          throw createError;
-        }
-      }
-    }
-
-    if (!booking) {
-      return NextResponse.json(
-        { error: "Không thể tạo mã booking duy nhất, vui lòng thử lại." },
-        { status: 409 }
-      );
-    }
-
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        hotelId,
-        userId: session.user.id,
-        entityType: "booking",
-        entityId: booking.id,
-        action: "create",
-        newValues: { bookingCode, status: "PENDING" },
-      },
-    });
-
-    return NextResponse.json({ data: booking }, { status: 201 });
-  } catch (error: any) {
-    console.error("POST /api/bookings error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống: " + (error.message || String(error)) }, { status: 500 });
-  }
-}
-</file>
-
 <file path="app/api/dashboard/stats/route.ts">
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6150,6 +5577,95 @@ export async function GET() {
     });
   } catch (error) {
     console.error("GET /api/dashboard/stats error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+</file>
+
+<file path="app/api/room-types/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const roomTypes = await prisma.roomType.findMany({
+      where: { hotelId: session.user.hotelId },
+      include: {
+        roomPrices: {
+          where: { isDefault: true },
+        },
+        _count: {
+          select: { rooms: true }
+        }
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return NextResponse.json({ data: roomTypes });
+  } catch (error) {
+    console.error("GET /api/room-types error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const { name, maxOccupancy, pricePerNight } = body;
+
+    if (!name || maxOccupancy == null) {
+      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+    }
+
+    // Check if name already exists
+    const existing = await prisma.roomType.findUnique({
+      where: {
+        hotelId_name: {
+          hotelId: session.user.hotelId,
+          name: name.trim(),
+        }
+      }
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: "Tên loại phòng đã tồn tại" }, { status: 400 });
+    }
+
+    const newRoomType = await prisma.$transaction(async (tx) => {
+      const rt = await tx.roomType.create({
+        data: {
+          hotelId: session.user.hotelId,
+          name: name.trim(),
+          maxOccupancy: Number(maxOccupancy),
+          amenities: [],
+        },
+      });
+
+      if (pricePerNight != null) {
+        await tx.roomPrice.create({
+          data: {
+            roomTypeId: rt.id,
+            label: "Giá mặc định",
+            pricePerNight: Number(pricePerNight),
+            isDefault: true,
+          },
+        });
+      }
+
+      return rt;
+    });
+
+    return NextResponse.json({ data: newRoomType });
+  } catch (error) {
+    console.error("POST /api/room-types error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -6410,760 +5926,6 @@ import { redirect } from "next/navigation";
 
 export default function Home() {
   redirect("/dashboard");
-}
-</file>
-
-<file path="components/bookings/BookingForm.tsx">
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { format, differenceInDays } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, Search, Star, X } from "lucide-react";
-import { cn, formatVND } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
-
-const bookingFormSchema = z.object({
-  roomId: z.string().min(1, "Vui lòng chọn phòng"),
-  guestId: z.string().optional(),
-  guestFullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
-  guestPhone: z.string().optional(),
-  guestIdNumber: z.string().optional(),
-  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]),
-  guestNationality: z.string(),
-  guestIsVip: z.boolean(),
-  checkInDate: z.instanceof(Date, { message: "Vui lòng chọn ngày nhận phòng" }),
-  checkOutDate: z.instanceof(Date, { message: "Vui lòng chọn ngày trả phòng" }),
-  roomRate: z.number().min(0, "Giá phòng không hợp lệ"),
-  depositAmount: z.number().min(0),
-  source: z.enum(["DIRECT", "PHONE", "WALKIN", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]),
-  specialRequests: z.string().optional(),
-  internalNotes: z.string().optional(),
-});
-
-type BookingFormValues = z.infer<typeof bookingFormSchema>;
-
-// ─── Sub-types ────────────────────────────────────────────────────────────────
-
-type RoomOption = {
-  id: string;
-  roomNumber: string;
-  status: string;
-  roomType: { name: string; roomPrices: { pricePerNight: number; isDefault: boolean }[] };
-};
-
-type GuestOption = {
-  id: string;
-  fullName: string;
-  phone: string | null;
-  idType: string;
-  idNumber: string | null;
-  nationality: string | null;
-  isVip: boolean;
-  totalStays: number;
-};
-
-// ─── GuestSearch ─────────────────────────────────────────────────────────────
-
-function GuestSearch({ onSelect }: { onSelect: (g: GuestOption) => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GuestOption[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!query.trim()) { setResults([]); setOpen(false); return; }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/guests?search=${encodeURIComponent(query)}`);
-        const json = await res.json();
-        setResults(json.data?.slice(0, 8) ?? []);
-        setOpen(true);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-  }, [query]);
-
-  return (
-    <div className="relative">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          placeholder="Tìm khách cũ theo tên / số điện thoại..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8 pr-8"
-        />
-        {(query || loading) && (
-          <button
-            type="button"
-            onClick={() => { setQuery(""); setResults([]); setOpen(false); }}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-          </button>
-        )}
-      </div>
-      {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
-          {results.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors text-sm"
-              onClick={() => {
-                onSelect(g);
-                setQuery("");
-                setResults([]);
-                setOpen(false);
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate flex items-center gap-1">
-                  {g.fullName}
-                  {g.isVip && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {g.phone ?? "–"} · {g.idType} {g.idNumber ?? "–"}
-                </p>
-              </div>
-              <span className="flex-none text-xs text-muted-foreground whitespace-nowrap">
-                {g.totalStays} lần ở
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      {open && results.length === 0 && !loading && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover px-3 py-2.5 text-sm text-muted-foreground shadow-lg">
-          Không tìm thấy khách — điền thông tin mới bên dưới
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── RoomGrid ─────────────────────────────────────────────────────────────────
-
-function RoomGrid({
-  rooms,
-  selectedId,
-  onSelect,
-}: {
-  rooms: RoomOption[];
-  selectedId: string;
-  onSelect: (r: RoomOption) => void;
-}) {
-  const [filterType, setFilterType] = useState<string>("all");
-  const types = Array.from(new Set(rooms.map((r) => r.roomType.name)));
-
-  const filtered = filterType === "all" ? rooms : rooms.filter((r) => r.roomType.name === filterType);
-
-  return (
-    <div className="space-y-2">
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setFilterType("all")}
-          className={cn(
-            "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
-            filterType === "all"
-              ? "bg-primary text-primary-foreground border-primary"
-              : "border-border hover:bg-muted"
-          )}
-        >
-          Tất cả
-        </button>
-        {types.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setFilterType(t)}
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
-              filterType === t
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border hover:bg-muted"
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-      {/* Grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-        {filtered.map((room) => {
-          const defaultPrice = room.roomType.roomPrices?.find((p) => p.isDefault)
-            ?? room.roomType.roomPrices?.[0];
-          const isSelected = room.id === selectedId;
-          return (
-            <button
-              key={room.id}
-              type="button"
-              onClick={() => onSelect(room)}
-              className={cn(
-                "flex flex-col items-center rounded-lg border p-2 text-center text-xs transition-all",
-                "hover:border-primary/60 hover:bg-primary/5",
-                isSelected
-                  ? "border-primary bg-primary/10 ring-1 ring-primary"
-                  : "border-border"
-              )}
-            >
-              <span className="text-base font-bold leading-tight">{room.roomNumber}</span>
-              <span className="text-[10px] text-muted-foreground leading-tight truncate w-full">
-                {room.roomType.name}
-              </span>
-              {defaultPrice && (
-                <span className="mt-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                  {(defaultPrice.pricePerNight / 1000).toFixed(0)}k
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      {filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground py-4 text-center">
-          Không có phòng trống cho loại này.
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Form ────────────────────────────────────────────────────────────────
-
-export function BookingForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [rooms, setRooms] = useState<RoomOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const initializedFromQuery = useRef(false);
-
-  const form = useForm<BookingFormValues>({
-    resolver: zodResolver(bookingFormSchema),
-    defaultValues: {
-      guestId: "",
-      guestFullName: "",
-      guestPhone: "",
-      guestIdType: "CCCD" as const,
-      guestNationality: "Việt Nam",
-      guestIsVip: false,
-      roomId: "",
-      checkInDate: new Date(),
-      checkOutDate: new Date(new Date().setDate(new Date().getDate() + 1)),
-      roomRate: 0,
-      depositAmount: 0,
-      source: "DIRECT" as const,
-      specialRequests: "",
-      internalNotes: "",
-    },
-  });
-
-  const watchCheckIn = form.watch("checkInDate");
-  const watchCheckOut = form.watch("checkOutDate");
-  const watchRoomId = form.watch("roomId");
-  const watchRoomRate = form.watch("roomRate");
-  const watchDeposit = form.watch("depositAmount");
-
-  const numNights =
-    watchCheckIn && watchCheckOut && watchCheckOut > watchCheckIn
-      ? differenceInDays(watchCheckOut, watchCheckIn)
-      : 0;
-
-  const totalAmount = numNights * watchRoomRate;
-  const remaining = Math.max(0, totalAmount - (watchDeposit ?? 0));
-
-  useEffect(() => {
-    async function fetchRooms() {
-      const res = await fetch("/api/rooms?status=AVAILABLE");
-      const json = await res.json();
-      setRooms(json.data || []);
-    }
-    fetchRooms();
-  }, []);
-
-  useEffect(() => {
-    if (initializedFromQuery.current) return;
-
-    const roomId = searchParams.get("roomId");
-    const checkIn = searchParams.get("checkIn") || searchParams.get("date");
-    const checkOut = searchParams.get("checkOut");
-
-    if (!roomId && !checkIn && !checkOut) {
-      initializedFromQuery.current = true;
-      return;
-    }
-
-    if (roomId) {
-      form.setValue("roomId", roomId);
-    }
-
-    const parseDateParam = (value: string | null) => {
-      if (!value) return null;
-      const parsed = new Date(`${value}T00:00:00`);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    };
-
-    const checkInDate = parseDateParam(checkIn);
-    const checkOutDate = parseDateParam(checkOut);
-
-    if (checkInDate) {
-      form.setValue("checkInDate", checkInDate);
-    }
-
-    if (checkOutDate && checkInDate && checkOutDate > checkInDate) {
-      form.setValue("checkOutDate", checkOutDate);
-    } else if (checkInDate) {
-      form.setValue("checkOutDate", new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000));
-    }
-
-    initializedFromQuery.current = true;
-  }, [form, searchParams]);
-
-  // Auto-fill price when room selected
-  useEffect(() => {
-    if (watchRoomId) {
-      const selectedRoom = rooms.find((r) => r.id === watchRoomId);
-      if (selectedRoom && (selectedRoom.roomType.roomPrices?.length ?? 0) > 0) {
-        const prices = selectedRoom.roomType.roomPrices;
-        const defaultPrice = prices.find((p) => p.isDefault) ?? prices[0];
-        if (defaultPrice) {
-          form.setValue("roomRate", Number(defaultPrice.pricePerNight));
-        }
-      }
-    }
-  }, [watchRoomId, rooms, form]);
-
-  // Fill form from guest search
-  function handleGuestSelect(g: GuestOption) {
-    form.setValue("guestId", g.id);
-    form.setValue("guestFullName", g.fullName);
-    form.setValue("guestPhone", g.phone ?? "");
-    form.setValue("guestIdType", (g.idType as BookingFormValues["guestIdType"]) ?? "CCCD");
-    form.setValue("guestIdNumber", g.idNumber ?? "");
-    form.setValue("guestNationality", g.nationality ?? "Việt Nam");
-    form.setValue("guestIsVip", g.isVip);
-    toast.success(`Đã điền thông tin: ${g.fullName}`);
-  }
-
-  async function onSubmit(data: BookingFormValues) {
-    if (numNights <= 0) {
-      toast.error("Ngày trả phòng phải sau ngày nhận phòng");
-      return;
-    }
-    setLoading(true);
-    try {
-      // Clean up empty guestId so it becomes undefined
-      const payload = {
-        ...data,
-        guestId: data.guestId || undefined,
-        checkInDate: data.checkInDate.toISOString(),
-        checkOutDate: data.checkOutDate.toISOString(),
-        numNights,
-      };
-
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Không thể tạo booking");
-      }
-
-      toast.success("Tạo booking thành công");
-      router.push("/bookings");
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8">
-          {/* ── Left / Main ── */}
-          <div className="space-y-8">
-            {/* Guest Info */}
-            <div className="rounded-lg border p-5 space-y-4">
-              <h3 className="text-base font-semibold">Thông tin khách hàng</h3>
-
-              {/* Guest search */}
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Tìm khách cũ</p>
-                <GuestSearch onSelect={handleGuestSelect} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="guestFullName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Họ và tên (*)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nguyễn Văn A" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="guestPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Số điện thoại</FormLabel>
-                      <FormControl>
-                        <Input placeholder="090..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="guestIdType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Loại giấy tờ</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn loại" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="CCCD">CCCD</SelectItem>
-                          <SelectItem value="PASSPORT">Passport</SelectItem>
-                          <SelectItem value="DRIVER_LICENSE">GPLX</SelectItem>
-                          <SelectItem value="OTHER">Khác</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="guestIdNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Số giấy tờ</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="guestNationality"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quốc tịch</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="guestIsVip"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 h-fit self-end">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="leading-none">
-                        <FormLabel className="flex items-center gap-1 cursor-pointer">
-                          <Star className="h-3.5 w-3.5 text-amber-500" />
-                          Khách VIP
-                        </FormLabel>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Booking Details */}
-            <div className="rounded-lg border p-5 space-y-4">
-              <h3 className="text-base font-semibold">Thông tin đặt phòng</h3>
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="checkInDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Ngày nhận phòng</FormLabel>
-                      <Popover>
-                        <PopoverTrigger
-                          className={cn(
-                            "inline-flex h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-normal transition-all hover:bg-muted",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="checkOutDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Ngày trả phòng</FormLabel>
-                      <Popover>
-                        <PopoverTrigger
-                          className={cn(
-                            "inline-flex h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-normal transition-all hover:bg-muted",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date <= (watchCheckIn || new Date())}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Room picker */}
-              <FormField
-                control={form.control}
-                name="roomId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Chọn phòng (*)</FormLabel>
-                    <FormControl>
-                      <RoomGrid
-                        rooms={rooms}
-                        selectedId={field.value}
-                        onSelect={(r) => field.onChange(r.id)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Room rate */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="roomRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Giá mỗi đêm (VND)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="source"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nguồn booking</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="DIRECT">Trực tiếp</SelectItem>
-                          <SelectItem value="PHONE">Điện thoại</SelectItem>
-                          <SelectItem value="WALKIN">Walk-in</SelectItem>
-                          <SelectItem value="BOOKING_COM">Booking.com</SelectItem>
-                          <SelectItem value="AGODA">Agoda</SelectItem>
-                          <SelectItem value="AIRBNB">Airbnb</SelectItem>
-                          <SelectItem value="OTHER">Khác</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="rounded-lg border p-5 space-y-4">
-              <h3 className="text-base font-semibold">Ghi chú</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="specialRequests"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Yêu cầu đặc biệt</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="VD: Không hút thuốc, tầng cao..."
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="internalNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ghi chú nội bộ</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Thông tin chỉ nhân viên thấy..."
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Right / Price Summary ── */}
-          <div className="space-y-4">
-            <div className="sticky top-20 rounded-lg border bg-card p-5 space-y-4 shadow-sm">
-              <h3 className="text-base font-semibold">Tóm tắt giá</h3>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Số đêm</span>
-                  <span className="font-medium">{numNights} đêm</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Giá / đêm</span>
-                  <span className="font-medium">{formatVND(watchRoomRate)}</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between text-base font-semibold">
-                  <span>Tổng tiền phòng</span>
-                  <span>{formatVND(totalAmount)}</span>
-                </div>
-              </div>
-
-              {/* Deposit */}
-              <FormField
-                control={form.control}
-                name="depositAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tiền đặt cọc (VND)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="rounded-md bg-muted/50 px-3 py-2.5 space-y-1 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Đặt cọc</span>
-                  <span className="text-green-600 font-medium">− {formatVND(watchDeposit ?? 0)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-base border-t pt-1.5 mt-1.5">
-                  <span>Còn lại</span>
-                  <span className={remaining > 0 ? "text-orange-600" : "text-emerald-600"}>
-                    {formatVND(remaining)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 pt-2">
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Xác nhận đặt phòng
-                </Button>
-                <Button variant="outline" type="button" onClick={() => router.back()} className="w-full">
-                  Hủy
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-    </Form>
-  );
 }
 </file>
 
@@ -7549,308 +6311,6 @@ export const config = {
 }
 </file>
 
-<file path="prisma/schema.prisma">
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-}
-
-model Hotel {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String   @db.VarChar(200)
-  address   String?
-  phone     String?  @db.VarChar(20)
-  email     String?  @db.VarChar(150)
-  logoUrl   String?
-  currency  String   @default("VND") @db.Char(3)
-  timezone  String   @default("Asia/Ho_Chi_Minh")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users             User[]
-  roomTypes         RoomType[]
-  rooms             Room[]
-  guests            Guest[]
-  bookings          Booking[]
-  serviceCatalog    ServiceCatalog[]
-  auditLogs         AuditLog[]
-
-  @@map("hotels")
-}
-
-model User {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId      String    @db.Uuid
-  fullName     String    @db.VarChar(150)
-  email        String    @db.VarChar(150)
-  passwordHash String
-  role         UserRole  @default(RECEPTIONIST)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  hotel              Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  bookingsCreated    Booking[]          @relation("BookingCreatedBy")
-  billsFinalized     Bill[]             @relation("BillFinalizedBy")
-  billPayments       BillPayment[]
-  bookingServices    BookingService[]
-  auditLogs          AuditLog[]
-
-  @@unique([hotelId, email])
-  @@map("users")
-}
-
-model RoomType {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId      String   @db.Uuid
-  name         String   @db.VarChar(100)
-  description  String?
-  maxOccupancy Int      @default(2) @db.SmallInt
-  amenities    String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  hotel      Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  rooms      Room[]
-  roomPrices RoomPrice[]
-
-  @@unique([hotelId, name])
-  @@map("room_types")
-}
-
-model RoomPrice {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  roomTypeId    String   @db.Uuid
-  label         String   @db.VarChar(100)
-  pricePerNight Decimal  @db.Decimal(12, 0)
-  dateFrom      DateTime? @db.Date
-  dateTo        DateTime? @db.Date
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-
-  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
-
-  @@map("room_prices")
-}
-
-model Room {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId     String     @db.Uuid
-  roomTypeId  String     @db.Uuid
-  roomNumber  String     @db.VarChar(20)
-  floor       Int?       @db.SmallInt
-  status      RoomStatus @default(AVAILABLE)
-  notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  roomType          RoomType           @relation(fields: [roomTypeId], references: [id])
-  bookings          Booking[]
-
-  @@unique([hotelId, roomNumber])
-  @@map("rooms")
-}
-
-model Guest {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId     String   @db.Uuid
-  fullName    String   @db.VarChar(150)
-  idNumber    String?  @db.VarChar(50)
-  idType      IdType   @default(CCCD)
-  idImageUrl  String?
-  phone       String?  @db.VarChar(20)
-  email       String?  @db.VarChar(150)
-  nationality String?  @default("Vi\u1ec7t Nam") @db.VarChar(100)
-  address     String?
-  dateOfBirth DateTime? @db.Date
-  isVip       Boolean  @default(false)
-  notes       String?
-  totalStays  Int      @default(0)
-  totalSpent  Decimal  @default(0) @db.Decimal(14, 0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  bookings Booking[]
-
-  @@map("guests")
-}
-
-model Booking {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId         String        @db.Uuid
-  roomId          String        @db.Uuid
-  guestId         String        @db.Uuid
-  createdBy       String        @db.Uuid
-  bookingCode     String        @unique @db.VarChar(20)
-  checkInDate     DateTime      @db.Date
-  checkOutDate    DateTime      @db.Date
-  numNights       Int           @db.SmallInt
-  actualCheckIn   DateTime?
-  actualCheckOut  DateTime?
-  roomRate        Decimal       @db.Decimal(12, 0)
-  depositAmount   Decimal       @default(0) @db.Decimal(12, 0)
-  status          BookingStatus @default(PENDING)
-  source          BookingSource @default(DIRECT)
-  specialRequests String?
-  internalNotes   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  hotel           Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  room            Room             @relation(fields: [roomId], references: [id])
-  guest           Guest            @relation(fields: [guestId], references: [id])
-  creator         User             @relation("BookingCreatedBy", fields: [createdBy], references: [id])
-  bookingServices BookingService[]
-  bill            Bill?
-
-  @@map("bookings")
-}
-
-model ServiceCatalog {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId     String   @db.Uuid
-  name        String   @db.VarChar(150)
-  unit        String   @default("l\u1ea7n") @db.VarChar(50)
-  unitPrice   Decimal  @db.Decimal(12, 0)
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  hotel           Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  bookingServices BookingService[]
-
-  @@map("service_catalog")
-}
-
-model BookingService {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId   String   @db.Uuid
-  serviceId   String?  @db.Uuid
-  serviceName String   @db.VarChar(150)
-  quantity    Decimal  @db.Decimal(8, 2)
-  unitPrice   Decimal  @db.Decimal(12, 0)
-  subtotal    Decimal  @db.Decimal(14, 0)
-  usedAt      DateTime @default(now())
-  recordedBy  String?  @db.Uuid
-  notes       String?
-
-  booking  Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  service  ServiceCatalog? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  recorder User?           @relation(fields: [recordedBy], references: [id], onDelete: SetNull)
-
-  @@map("booking_services")
-}
-
-model Bill {
-  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId        String     @unique @db.Uuid
-  billNumber       String     @unique @db.VarChar(30)
-  subtotalRoom     Decimal    @default(0) @db.Decimal(14, 0)
-  subtotalServices Decimal    @default(0) @db.Decimal(14, 0)
-  discountAmount   Decimal    @default(0) @db.Decimal(14, 0)
-  discountNote     String?
-  totalAmount      Decimal    @default(0) @db.Decimal(14, 0)
-  depositApplied   Decimal    @default(0) @db.Decimal(14, 0)
-  amountDue        Decimal    @default(0) @db.Decimal(14, 0)
-  status           BillStatus @default(OPEN)
-  notes            String?
-  finalizedAt      DateTime?
-  finalizedBy      String?    @db.Uuid
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-
-  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  finalizer   User?         @relation("BillFinalizedBy", fields: [finalizedBy], references: [id], onDelete: SetNull)
-  payments    BillPayment[]
-
-  @@map("bills")
-}
-
-model BillPayment {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  billId      String   @db.Uuid
-  recordedBy  String   @db.Uuid
-  amount      Decimal  @db.Decimal(14, 0)
-  method      String   @default("Ti\u1ec1n m\u1eb7t") @db.VarChar(100)
-  receivedAt  DateTime @default(now())
-  notes       String?
-
-  bill     Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
-  recorder User @relation(fields: [recordedBy], references: [id])
-
-  @@map("bill_payments")
-}
-
-model AuditLog {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId    String   @db.Uuid
-  userId     String?  @db.Uuid
-  entityType String   @db.VarChar(50)
-  entityId   String?  @db.Uuid
-  action     String   @db.VarChar(50)
-  oldValues  Json?
-  newValues  Json?
-  createdAt  DateTime @default(now())
-
-  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@map("audit_logs")
-}
-
-enum UserRole {
-  OWNER
-  MANAGER
-  RECEPTIONIST
-}
-
-enum RoomStatus {
-  AVAILABLE
-  OCCUPIED
-  MAINTENANCE
-  BLOCKED
-}
-
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CHECKED_IN
-  CHECKED_OUT
-  CANCELLED
-  NO_SHOW
-}
-
-enum BookingSource {
-  DIRECT
-  PHONE
-  WALKIN
-  BOOKING_COM
-  AGODA
-  AIRBNB
-  OTHER
-}
-
-enum IdType {
-  CCCD
-  PASSPORT
-  DRIVER_LICENSE
-  OTHER
-}
-
-enum BillStatus {
-  OPEN
-  FINALIZED
-  SETTLED
-}
-</file>
-
 <file path="types/index.ts">
 import type {
   Hotel,
@@ -7994,6 +6454,563 @@ export type TopServiceData = {
 };
 </file>
 
+<file path="app/(dashboard)/onboarding/page.tsx">
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Building2, 
+  BedDouble, 
+  DoorOpen, 
+  Loader2,
+  Plus,
+  ArrowLeft,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import Link from "next/link";
+
+type RoomType = {
+  id: string;
+  name: string;
+  maxOccupancy: number;
+  roomPrices: { pricePerNight: number }[];
+};
+
+type Room = {
+  id: string;
+  roomNumber: string;
+  roomType: { name: string };
+};
+
+export default function HotelSetupPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("room-types");
+  
+  // Data
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Forms
+  const [rtName, setRtName] = useState("");
+  const [rtOccupancy, setRtOccupancy] = useState("2");
+  const [loadingRt, setLoadingRt] = useState(false);
+
+  const [rNumber, setRNumber] = useState("");
+  const [rTypeId, setRTypeId] = useState("");
+  const [loadingR, setLoadingR] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoadingData(true);
+    try {
+      const [rtRes, rRes] = await Promise.all([
+        fetch("/api/room-types"),
+        fetch("/api/rooms")
+      ]);
+      if (rtRes.ok) {
+        const rtJson = await rtRes.json();
+        setRoomTypes(rtJson.data || []);
+      }
+      if (rRes.ok) {
+        const rJson = await rRes.json();
+        setRooms(rJson.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching setup data:", error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleCreateRoomType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rtName) return toast.error("Vui lòng điền tên loại phòng");
+    setLoadingRt(true);
+    try {
+      const res = await fetch("/api/room-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: rtName,
+          maxOccupancy: Number(rtOccupancy),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      toast.success("Tạo loại phòng thành công");
+      setRtName("");
+      setRoomTypes([...roomTypes, data.data]);
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra");
+    } finally {
+      setLoadingRt(false);
+    }
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rNumber || !rTypeId) return toast.error("Vui lòng nhập số phòng và chọn loại phòng");
+    setLoadingR(true);
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomNumber: rNumber,
+          roomTypeId: rTypeId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      toast.success(`Đã tạo phòng ${rNumber}`);
+      setRNumber("");
+      setRooms([...rooms, data.data]);
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra");
+    } finally {
+      setLoadingR(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Thiết lập khách sạn</h2>
+            <p className="text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
+          </div>
+        </div>
+        <Button onClick={() => router.push("/dashboard")}>
+          Về Dashboard
+        </Button>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="room-types" className="flex items-center gap-2">
+            <BedDouble className="h-4 w-4" />
+            Loại phòng
+          </TabsTrigger>
+          <TabsTrigger value="rooms" className="flex items-center gap-2">
+            <DoorOpen className="h-4 w-4" />
+            Phòng
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ROOM TYPES TAB */}
+        <TabsContent value="room-types" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm loại phòng</CardTitle>
+                <CardDescription>Tạo các hạng phòng như Standard, Deluxe...</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoomType} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Tên loại phòng (*)</Label>
+                    <Input 
+                      placeholder="VD: Phòng Standard" 
+                      value={rtName} 
+                      onChange={(e) => setRtName(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Số khách tối đa</Label>
+                    <Input 
+                      type="number" 
+                      value={rtOccupancy} 
+                      onChange={(e) => setRtOccupancy(e.target.value)} 
+                      min="1"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loadingRt}>
+                    {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Tạo loại phòng
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách loại phòng ({roomTypes.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : roomTypes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có loại phòng nào.
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
+                          <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
+                          <th className="px-4 py-3 text-center font-medium">Số phòng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {roomTypes.map((rt: any) => (
+                          <tr key={rt.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 font-medium">{rt.name}</td>
+                            <td className="px-4 py-3 text-center">{rt.maxOccupancy} khách</td>
+                            <td className="px-4 py-3 text-center">{(rt as any)._count?.rooms || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ROOMS TAB */}
+        <TabsContent value="rooms" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm phòng mới</CardTitle>
+                <CardDescription>Đánh số phòng và gán vào loại phòng.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoom} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Số phòng (*)</Label>
+                    <Input 
+                      placeholder="VD: 101, P101..." 
+                      value={rNumber} 
+                      onChange={(e) => setRNumber(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Loại phòng (*)</Label>
+                    <Select value={rTypeId} onValueChange={setRTypeId} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn loại phòng..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roomTypes.map(rt => (
+                          <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
+                    {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Tạo phòng
+                  </Button>
+                  {roomTypes.length === 0 && (
+                    <p className="text-[10px] text-destructive text-center mt-2">
+                      Bạn cần tạo Loại phòng trước khi tạo Phòng.
+                    </p>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : rooms.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có phòng nào.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {rooms.map((r) => (
+                      <div key={r.id} className="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 bg-white hover:border-primary transition-colors">
+                        <span className="text-xl font-bold">{r.roomNumber}</span>
+                        <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded">
+                          {r.roomType.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+</file>
+
+<file path="app/api/bookings/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { generateBookingCode, checkRoomAvailability } from "@/lib/booking-code";
+import { z } from "zod";
+
+const BookingCreateSchema = z.object({
+  roomId: z.string().uuid(),
+  guestId: z.string().uuid().optional(),
+  // New guest fields
+  guestFullName: z.string().min(1).optional(),
+  guestPhone: z.string().optional(),
+  guestIdNumber: z.string().optional(),
+  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]).optional(),
+  guestNationality: z.string().optional(),
+  guestIsVip: z.boolean().optional(),
+  // Booking fields
+  checkInDate: z.string(),
+  checkOutDate: z.string(),
+  numNights: z.number().int().min(1),
+  roomRate: z.number().min(0),
+  depositAmount: z.number().min(0).default(0),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("WALKIN"),
+  specialRequests: z.string().optional(),
+  internalNotes: z.string().optional(),
+  bookingCode: z.string().max(50).optional(),
+});
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const status = searchParams.get("status");
+  const search = searchParams.get("search");
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = parseInt(searchParams.get("limit") || "20");
+
+  try {
+    const where: Record<string, unknown> = { hotelId: session.user.hotelId };
+
+    if (status && status !== "ALL") {
+      where.status = status;
+    }
+    if (dateFrom || dateTo) {
+      where.checkInDate = {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(dateTo) } : {}),
+      };
+    }
+    if (search) {
+      where.OR = [
+        { bookingCode: { contains: search, mode: "insensitive" } },
+        { guest: { fullName: { contains: search, mode: "insensitive" } } },
+        { guest: { phone: { contains: search } } },
+        { room: { roomNumber: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        include: {
+          room: { include: { roomType: true } },
+          guest: true,
+          creator: { select: { id: true, fullName: true } },
+          bill: true,
+        },
+        orderBy: { checkInDate: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
+    return NextResponse.json({ data: bookings, total, page, limit });
+  } catch (error) {
+    console.error("GET /api/bookings error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const parsed = BookingCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    }
+
+    const data = parsed.data;
+    const checkIn = new Date(data.checkInDate);
+    const checkOut = new Date(data.checkOutDate);
+
+    if (checkOut <= checkIn) {
+      return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });
+    }
+
+    // Check availability
+    const available = await checkRoomAvailability(data.roomId, checkIn, checkOut);
+    if (!available) {
+      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
+    }
+
+    const hotelId = session.user.hotelId;
+
+    // Get or create guest
+    let guestId = data.guestId;
+    if (!guestId) {
+      if (!data.guestFullName) {
+        return NextResponse.json({ error: "Cần thông tin khách hàng" }, { status: 400 });
+      }
+      const guest = await prisma.guest.create({
+        data: {
+          hotelId,
+          fullName: data.guestFullName,
+          phone: data.guestPhone,
+          idNumber: data.guestIdNumber,
+          idType: data.guestIdType || "CCCD",
+          nationality: data.guestNationality || "Việt Nam",
+          isVip: data.guestIsVip || false,
+        },
+      });
+      guestId = guest.id;
+    }
+
+    let bookingCode = data.bookingCode?.trim() || "";
+    let booking: Awaited<ReturnType<typeof prisma.booking.create>> | null = null;
+
+    if (bookingCode) {
+      try {
+        booking = await prisma.booking.create({
+          data: {
+            hotelId,
+            roomId: data.roomId,
+            guestId,
+            createdBy: session.user.id,
+            bookingCode,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            numNights: data.numNights,
+            roomRate: data.roomRate,
+            depositAmount: data.depositAmount,
+            status: "PENDING",
+            source: data.source,
+            specialRequests: data.specialRequests,
+            internalNotes: data.internalNotes,
+          },
+          include: {
+            room: { include: { roomType: true } },
+            guest: true,
+          },
+        });
+      } catch (createError: any) {
+        if (createError instanceof Prisma.PrismaClientKnownRequestError && createError.code === "P2002") {
+          return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
+        }
+        throw createError;
+      }
+    } else {
+      const maxCreateAttempts = 5;
+      for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
+        bookingCode = await generateBookingCode(hotelId);
+        try {
+          booking = await prisma.booking.create({
+            data: {
+              hotelId,
+              roomId: data.roomId,
+              guestId,
+              createdBy: session.user.id,
+              bookingCode,
+              checkInDate: checkIn,
+              checkOutDate: checkOut,
+              numNights: data.numNights,
+              roomRate: data.roomRate,
+              depositAmount: data.depositAmount,
+              status: "PENDING",
+              source: data.source,
+              specialRequests: data.specialRequests,
+              internalNotes: data.internalNotes,
+            },
+            include: {
+              room: { include: { roomType: true } },
+              guest: true,
+            },
+          });
+          break;
+        } catch (createError) {
+          const target = createError instanceof Prisma.PrismaClientKnownRequestError
+            ? createError.meta?.target
+            : undefined;
+          const targetFields = Array.isArray(target)
+            ? target
+            : typeof target === "string"
+              ? [target]
+              : [];
+
+          const isBookingCodeCollision =
+            createError instanceof Prisma.PrismaClientKnownRequestError &&
+            createError.code === "P2002" &&
+            targetFields.some((field) => field.includes("bookingCode"));
+
+          if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
+            throw createError;
+          }
+        }
+      }
+    }
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Không thể tạo mã booking duy nhất, vui lòng thử lại." },
+        { status: 409 }
+      );
+    }
+
+    // Log audit
+    await prisma.auditLog.create({
+      data: {
+        hotelId,
+        userId: session.user.id,
+        entityType: "booking",
+        entityId: booking.id,
+        action: "create",
+        newValues: { bookingCode, status: "PENDING" },
+      },
+    });
+
+    return NextResponse.json({ data: booking }, { status: 201 });
+  } catch (error: any) {
+    console.error("POST /api/bookings error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống: " + (error.message || String(error)) }, { status: 500 });
+  }
+}
+</file>
+
 <file path="app/api/calendar/route.ts">
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -8063,6 +7080,774 @@ export async function GET(req: NextRequest) {
 }
 </file>
 
+<file path="components/bookings/BookingForm.tsx">
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { format, differenceInDays } from "date-fns";
+import { Calendar as CalendarIcon, Loader2, Search, Star, X } from "lucide-react";
+import { cn, formatVND } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+
+// ─── Schema ───────────────────────────────────────────────────────────────────
+
+const bookingFormSchema = z.object({
+  roomId: z.string().min(1, "Vui lòng chọn phòng"),
+  guestId: z.string().optional(),
+  guestFullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
+  guestPhone: z.string().optional(),
+  guestIdNumber: z.string().optional(),
+  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]),
+  guestNationality: z.string(),
+  guestIsVip: z.boolean(),
+  checkInDate: z.instanceof(Date, { message: "Vui lòng chọn ngày nhận phòng" }),
+  checkOutDate: z.instanceof(Date, { message: "Vui lòng chọn ngày trả phòng" }),
+  roomRate: z.number().min(0, "Giá phòng không hợp lệ"),
+  depositAmount: z.number().min(0),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]),
+  specialRequests: z.string().optional(),
+  internalNotes: z.string().optional(),
+  bookingCode: z.string().optional(),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
+// ─── Sub-types ────────────────────────────────────────────────────────────────
+
+type RoomOption = {
+  id: string;
+  roomNumber: string;
+  status: string;
+  roomType: { name: string; roomPrices: { pricePerNight: number; isDefault: boolean }[] };
+};
+
+type GuestOption = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  idType: string;
+  idNumber: string | null;
+  nationality: string | null;
+  isVip: boolean;
+  totalStays: number;
+};
+
+// ─── GuestSearch ─────────────────────────────────────────────────────────────
+
+function GuestSearch({ onSelect }: { onSelect: (g: GuestOption) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GuestOption[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); setOpen(false); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/guests?search=${encodeURIComponent(query)}`);
+        const json = await res.json();
+        setResults(json.data?.slice(0, 8) ?? []);
+        setOpen(true);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, [query]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Tìm khách cũ theo tên / số điện thoại..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-8 pr-8"
+        />
+        {(query || loading) && (
+          <button
+            type="button"
+            onClick={() => { setQuery(""); setResults([]); setOpen(false); }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
+          {results.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors text-sm"
+              onClick={() => {
+                onSelect(g);
+                setQuery("");
+                setResults([]);
+                setOpen(false);
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate flex items-center gap-1">
+                  {g.fullName}
+                  {g.isVip && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {g.phone ?? "–"} · {g.idType} {g.idNumber ?? "–"}
+                </p>
+              </div>
+              <span className="flex-none text-xs text-muted-foreground whitespace-nowrap">
+                {g.totalStays} lần ở
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && results.length === 0 && !loading && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover px-3 py-2.5 text-sm text-muted-foreground shadow-lg">
+          Không tìm thấy khách — điền thông tin mới bên dưới
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RoomGrid ─────────────────────────────────────────────────────────────────
+
+function RoomGrid({
+  rooms,
+  selectedId,
+  onSelect,
+}: {
+  rooms: RoomOption[];
+  selectedId: string;
+  onSelect: (r: RoomOption) => void;
+}) {
+  const [filterType, setFilterType] = useState<string>("all");
+  const types = Array.from(new Set(rooms.map((r) => r.roomType.name)));
+
+  const filtered = filterType === "all" ? rooms : rooms.filter((r) => r.roomType.name === filterType);
+
+  return (
+    <div className="space-y-2">
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => setFilterType("all")}
+          className={cn(
+            "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
+            filterType === "all"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-border hover:bg-muted"
+          )}
+        >
+          Tất cả
+        </button>
+        {types.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setFilterType(t)}
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
+              filterType === t
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border hover:bg-muted"
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      {/* Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+        {filtered.map((room) => {
+          const defaultPrice = room.roomType.roomPrices?.find((p) => p.isDefault)
+            ?? room.roomType.roomPrices?.[0];
+          const isSelected = room.id === selectedId;
+          return (
+            <button
+              key={room.id}
+              type="button"
+              onClick={() => onSelect(room)}
+              className={cn(
+                "flex flex-col items-center rounded-lg border p-2 text-center text-xs transition-all",
+                "hover:border-primary/60 hover:bg-primary/5",
+                isSelected
+                  ? "border-primary bg-primary/10 ring-1 ring-primary"
+                  : "border-border"
+              )}
+            >
+              <span className="text-base font-bold leading-tight">{room.roomNumber}</span>
+              <span className="text-[10px] text-muted-foreground leading-tight truncate w-full">
+                {room.roomType.name}
+              </span>
+              {defaultPrice && (
+                <span className="mt-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                  {(defaultPrice.pricePerNight / 1000).toFixed(0)}k
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {filtered.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          Không có phòng trống cho loại này.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Form ────────────────────────────────────────────────────────────────
+
+export function BookingForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const initializedFromQuery = useRef(false);
+
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: {
+      guestId: "",
+      guestFullName: "",
+      guestPhone: "",
+      guestIdType: "CCCD" as const,
+      guestNationality: "Việt Nam",
+      guestIsVip: false,
+      roomId: "",
+      checkInDate: new Date(),
+      checkOutDate: new Date(new Date().setDate(new Date().getDate() + 1)),
+      roomRate: 0,
+      depositAmount: 0,
+      source: "WALKIN" as const,
+      specialRequests: "",
+      internalNotes: "",
+      bookingCode: "",
+    },
+});
+
+  const watchCheckIn = form.watch("checkInDate");
+  const watchCheckOut = form.watch("checkOutDate");
+  const watchRoomId = form.watch("roomId");
+  const watchRoomRate = form.watch("roomRate");
+  const watchDeposit = form.watch("depositAmount");
+
+  const numNights =
+    watchCheckIn && watchCheckOut && watchCheckOut > watchCheckIn
+      ? differenceInDays(watchCheckOut, watchCheckIn)
+      : 0;
+
+  const totalAmount = numNights * watchRoomRate;
+  const remaining = Math.max(0, totalAmount - (watchDeposit ?? 0));
+
+  useEffect(() => {
+    async function fetchRooms() {
+      const res = await fetch("/api/rooms?status=AVAILABLE");
+      const json = await res.json();
+      setRooms(json.data || []);
+    }
+    fetchRooms();
+  }, []);
+
+  useEffect(() => {
+    if (initializedFromQuery.current) return;
+
+    const roomId = searchParams.get("roomId");
+    const checkIn = searchParams.get("checkIn") || searchParams.get("date");
+    const checkOut = searchParams.get("checkOut");
+
+    if (!roomId && !checkIn && !checkOut) {
+      initializedFromQuery.current = true;
+      return;
+    }
+
+    if (roomId) {
+      form.setValue("roomId", roomId);
+    }
+
+    const parseDateParam = (value: string | null) => {
+      if (!value) return null;
+      const parsed = new Date(`${value}T00:00:00`);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const checkInDate = parseDateParam(checkIn);
+    const checkOutDate = parseDateParam(checkOut);
+
+    if (checkInDate) {
+      form.setValue("checkInDate", checkInDate);
+    }
+
+    if (checkOutDate && checkInDate && checkOutDate > checkInDate) {
+      form.setValue("checkOutDate", checkOutDate);
+    } else if (checkInDate) {
+      form.setValue("checkOutDate", new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000));
+    }
+
+    initializedFromQuery.current = true;
+  }, [form, searchParams]);
+
+  // Auto-fill price when room selected
+  useEffect(() => {
+    if (watchRoomId) {
+      const selectedRoom = rooms.find((r) => r.id === watchRoomId);
+      if (selectedRoom && (selectedRoom.roomType.roomPrices?.length ?? 0) > 0) {
+        const prices = selectedRoom.roomType.roomPrices;
+        const defaultPrice = prices.find((p) => p.isDefault) ?? prices[0];
+        if (defaultPrice) {
+          form.setValue("roomRate", Number(defaultPrice.pricePerNight));
+        }
+      }
+    }
+  }, [watchRoomId, rooms, form]);
+
+  // Fill form from guest search
+  function handleGuestSelect(g: GuestOption) {
+    form.setValue("guestId", g.id);
+    form.setValue("guestFullName", g.fullName);
+    form.setValue("guestPhone", g.phone ?? "");
+    form.setValue("guestIdType", (g.idType as BookingFormValues["guestIdType"]) ?? "CCCD");
+    form.setValue("guestIdNumber", g.idNumber ?? "");
+    form.setValue("guestNationality", g.nationality ?? "Việt Nam");
+    form.setValue("guestIsVip", g.isVip);
+    toast.success(`Đã điền thông tin: ${g.fullName}`);
+  }
+
+  async function onSubmit(data: BookingFormValues) {
+    if (numNights <= 0) {
+      toast.error("Ngày trả phòng phải sau ngày nhận phòng");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Clean up empty guestId so it becomes undefined
+      const payload = {
+        ...data,
+        guestId: data.guestId || undefined,
+        checkInDate: data.checkInDate.toISOString(),
+        checkOutDate: data.checkOutDate.toISOString(),
+        numNights,
+      };
+
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Không thể tạo booking");
+      }
+
+      toast.success("Tạo booking thành công");
+      router.push("/bookings");
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8">
+          {/* ── Left / Main ── */}
+          <div className="space-y-8">
+            {/* Guest Info */}
+            <div className="rounded-lg border p-5 space-y-4">
+              <h3 className="text-base font-semibold">Thông tin khách hàng</h3>
+
+              {/* Guest search */}
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Tìm khách cũ</p>
+                <GuestSearch onSelect={handleGuestSelect} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="guestFullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Họ và tên (*)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nguyễn Văn A" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guestPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormControl>
+                        <Input placeholder="090..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guestIdType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Loại giấy tờ</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn loại" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="CCCD">CCCD</SelectItem>
+                          <SelectItem value="PASSPORT">Passport</SelectItem>
+                          <SelectItem value="DRIVER_LICENSE">GPLX</SelectItem>
+                          <SelectItem value="OTHER">Khác</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guestIdNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số giấy tờ</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guestNationality"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quốc tịch</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guestIsVip"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 h-fit self-end">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="leading-none">
+                        <FormLabel className="flex items-center gap-1 cursor-pointer">
+                          <Star className="h-3.5 w-3.5 text-amber-500" />
+                          Khách VIP
+                        </FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Booking Details */}
+            <div className="rounded-lg border p-5 space-y-4">
+              <h3 className="text-base font-semibold">Thông tin đặt phòng</h3>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="checkInDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Ngày nhận phòng</FormLabel>
+                      <Popover>
+                        <PopoverTrigger
+                          className={cn(
+                            "inline-flex h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-normal transition-all hover:bg-muted",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="checkOutDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Ngày trả phòng</FormLabel>
+                      <Popover>
+                        <PopoverTrigger
+                          className={cn(
+                            "inline-flex h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-normal transition-all hover:bg-muted",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "dd/MM/yyyy") : <span>Chọn ngày</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date <= (watchCheckIn || new Date())}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Room picker */}
+              <FormField
+                control={form.control}
+                name="roomId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chọn phòng (*)</FormLabel>
+                    <FormControl>
+                      <RoomGrid
+                        rooms={rooms}
+                        selectedId={field.value}
+                        onSelect={(r) => field.onChange(r.id)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Booking Code, Rate, Source */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="bookingCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mã Booking</FormLabel>
+                      <FormControl>
+                        <Input placeholder="VD: BCOM-123456" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="roomRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Giá mỗi đêm (VND)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="source"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nguồn booking</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="WALKIN">Trực tiếp</SelectItem>
+                          <SelectItem value="FACEBOOK_ZALO">FACEBOOK/ZALO</SelectItem>
+                          <SelectItem value="BOOKING_COM">Booking.com</SelectItem>
+                          <SelectItem value="AGODA">Agoda</SelectItem>
+                          <SelectItem value="AIRBNB">Airbnb</SelectItem>
+                          <SelectItem value="OTHER">Khác</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="rounded-lg border p-5 space-y-4">
+              <h3 className="text-base font-semibold">Ghi chú</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="specialRequests"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Yêu cầu đặc biệt</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="VD: Không hút thuốc, tầng cao..."
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="internalNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghi chú nội bộ</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Thông tin chỉ nhân viên thấy..."
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right / Price Summary ── */}
+          <div className="space-y-4">
+            <div className="sticky top-20 rounded-lg border bg-card p-5 space-y-4 shadow-sm">
+              <h3 className="text-base font-semibold">Tóm tắt giá</h3>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Số đêm</span>
+                  <span className="font-medium">{numNights} đêm</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Giá / đêm</span>
+                  <span className="font-medium">{formatVND(watchRoomRate)}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between text-base font-semibold">
+                  <span>Tổng tiền phòng</span>
+                  <span>{formatVND(totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* Deposit */}
+              <FormField
+                control={form.control}
+                name="depositAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tiền đặt cọc (VND)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="rounded-md bg-muted/50 px-3 py-2.5 space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Đặt cọc</span>
+                  <span className="text-green-600 font-medium">− {formatVND(watchDeposit ?? 0)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-base border-t pt-1.5 mt-1.5">
+                  <span>Còn lại</span>
+                  <span className={remaining > 0 ? "text-orange-600" : "text-emerald-600"}>
+                    {formatVND(remaining)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Xác nhận đặt phòng
+                </Button>
+                <Button variant="outline" type="button" onClick={() => router.back()} className="w-full">
+                  Hủy
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </Form>
+  );
+}
+</file>
+
 <file path="components/layout/Sidebar.tsx">
 "use client";
 
@@ -8123,6 +7908,7 @@ export function Sidebar({ className }: SidebarProps) {
           <Button
             className="w-full justify-start gap-2 mb-3"
             render={<Link href="/bookings/new" />}
+            nativeButton={false}
           >
             <PlusCircle className="h-4 w-4" />
             Tạo booking mới
@@ -8136,6 +7922,7 @@ export function Sidebar({ className }: SidebarProps) {
                 variant={isActive(href) ? "secondary" : "ghost"}
                 className="w-full justify-start"
                 render={<Link href={href} />}
+                nativeButton={false}
               >
                 <Icon className="mr-2 h-4 w-4" />
                 {label}
@@ -8156,6 +7943,7 @@ export function Sidebar({ className }: SidebarProps) {
                 variant={isActive(href) ? "secondary" : "ghost"}
                 className="w-full justify-start"
                 render={<Link href={href} />}
+                nativeButton={false}
               >
                 <Icon className="mr-2 h-4 w-4" />
                 {label}
@@ -8166,6 +7954,310 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
     </div>
   );
+}
+</file>
+
+<file path="prisma/schema.prisma">
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Hotel {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(200)
+  address   String?
+  phone     String?  @db.VarChar(20)
+  email     String?  @db.VarChar(150)
+  logoUrl   String?
+  currency  String   @default("VND") @db.Char(3)
+  timezone  String   @default("Asia/Ho_Chi_Minh")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  roomTypes         RoomType[]
+  rooms             Room[]
+  guests            Guest[]
+  bookings          Booking[]
+  serviceCatalog    ServiceCatalog[]
+  auditLogs         AuditLog[]
+
+  @@map("hotels")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId      String    @db.Uuid
+  fullName     String    @db.VarChar(150)
+  email        String    @db.VarChar(150)
+  passwordHash String
+  role         UserRole  @default(RECEPTIONIST)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  hotel              Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookingsCreated    Booking[]          @relation("BookingCreatedBy")
+  billsFinalized     Bill[]             @relation("BillFinalizedBy")
+  billPayments       BillPayment[]
+  bookingServices    BookingService[]
+  auditLogs          AuditLog[]
+
+  @@unique([hotelId, email])
+  @@map("users")
+}
+
+model RoomType {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId      String   @db.Uuid
+  name         String   @db.VarChar(100)
+  description  String?
+  maxOccupancy Int      @default(2) @db.SmallInt
+  amenities    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  hotel      Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  rooms      Room[]
+  roomPrices RoomPrice[]
+
+  @@unique([hotelId, name])
+  @@map("room_types")
+}
+
+model RoomPrice {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomTypeId    String   @db.Uuid
+  label         String   @db.VarChar(100)
+  pricePerNight Decimal  @db.Decimal(12, 0)
+  dateFrom      DateTime? @db.Date
+  dateTo        DateTime? @db.Date
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@map("room_prices")
+}
+
+model Room {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId     String     @db.Uuid
+  roomTypeId  String     @db.Uuid
+  roomNumber  String     @db.VarChar(20)
+  floor       Int?       @db.SmallInt
+  status      RoomStatus @default(AVAILABLE)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType          RoomType           @relation(fields: [roomTypeId], references: [id])
+  bookings          Booking[]
+
+  @@unique([hotelId, roomNumber])
+  @@map("rooms")
+}
+
+model Guest {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId     String   @db.Uuid
+  fullName    String   @db.VarChar(150)
+  idNumber    String?  @db.VarChar(50)
+  idType      IdType   @default(CCCD)
+  idImageUrl  String?
+  phone       String?  @db.VarChar(20)
+  email       String?  @db.VarChar(150)
+  nationality String?  @default("Vi\u1ec7t Nam") @db.VarChar(100)
+  address     String?
+  dateOfBirth DateTime? @db.Date
+  isVip       Boolean  @default(false)
+  notes       String?
+  totalStays  Int      @default(0)
+  totalSpent  Decimal  @default(0) @db.Decimal(14, 0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@map("guests")
+}
+
+model Booking {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId         String        @db.Uuid
+  roomId          String        @db.Uuid
+  guestId         String        @db.Uuid
+  createdBy       String        @db.Uuid
+  bookingCode     String        @db.VarChar(50)
+  checkInDate     DateTime      @db.Date
+  checkOutDate    DateTime      @db.Date
+  numNights       Int           @db.SmallInt
+  actualCheckIn   DateTime?
+  actualCheckOut  DateTime?
+  roomRate        Decimal       @db.Decimal(12, 0)
+  depositAmount   Decimal       @default(0) @db.Decimal(12, 0)
+  status          BookingStatus @default(PENDING)
+  source          BookingSource @default(WALKIN)
+  specialRequests String?
+  internalNotes   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  hotel           Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room            Room             @relation(fields: [roomId], references: [id])
+  guest           Guest            @relation(fields: [guestId], references: [id])
+  creator         User             @relation("BookingCreatedBy", fields: [createdBy], references: [id])
+  bookingServices BookingService[]
+  bill            Bill?
+
+  @@unique([hotelId, bookingCode])
+  @@map("bookings")
+}
+
+model ServiceCatalog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId     String   @db.Uuid
+  name        String   @db.VarChar(150)
+  unit        String   @default("l\u1ea7n") @db.VarChar(50)
+  unitPrice   Decimal  @db.Decimal(12, 0)
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hotel           Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookingServices BookingService[]
+
+  @@map("service_catalog")
+}
+
+model BookingService {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String   @db.Uuid
+  serviceId   String?  @db.Uuid
+  serviceName String   @db.VarChar(150)
+  quantity    Decimal  @db.Decimal(8, 2)
+  unitPrice   Decimal  @db.Decimal(12, 0)
+  subtotal    Decimal  @db.Decimal(14, 0)
+  usedAt      DateTime @default(now())
+  recordedBy  String?  @db.Uuid
+  notes       String?
+
+  booking  Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service  ServiceCatalog? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  recorder User?           @relation(fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@map("booking_services")
+}
+
+model Bill {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId        String     @unique @db.Uuid
+  billNumber       String     @unique @db.VarChar(30)
+  subtotalRoom     Decimal    @default(0) @db.Decimal(14, 0)
+  subtotalServices Decimal    @default(0) @db.Decimal(14, 0)
+  discountAmount   Decimal    @default(0) @db.Decimal(14, 0)
+  discountNote     String?
+  totalAmount      Decimal    @default(0) @db.Decimal(14, 0)
+  depositApplied   Decimal    @default(0) @db.Decimal(14, 0)
+  amountDue        Decimal    @default(0) @db.Decimal(14, 0)
+  status           BillStatus @default(OPEN)
+  notes            String?
+  finalizedAt      DateTime?
+  finalizedBy      String?    @db.Uuid
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  finalizer   User?         @relation("BillFinalizedBy", fields: [finalizedBy], references: [id], onDelete: SetNull)
+  payments    BillPayment[]
+
+  @@map("bills")
+}
+
+model BillPayment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId      String   @db.Uuid
+  recordedBy  String   @db.Uuid
+  amount      Decimal  @db.Decimal(14, 0)
+  method      String   @default("Ti\u1ec1n m\u1eb7t") @db.VarChar(100)
+  receivedAt  DateTime @default(now())
+  notes       String?
+
+  bill     Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  recorder User @relation(fields: [recordedBy], references: [id])
+
+  @@map("bill_payments")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId    String   @db.Uuid
+  userId     String?  @db.Uuid
+  entityType String   @db.VarChar(50)
+  entityId   String?  @db.Uuid
+  action     String   @db.VarChar(50)
+  oldValues  Json?
+  newValues  Json?
+  createdAt  DateTime @default(now())
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  RECEPTIONIST
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  BLOCKED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  WALKIN
+  FACEBOOK_ZALO
+  BOOKING_COM
+  AGODA
+  AIRBNB
+  DIRECT
+  PHONE
+  OTHER
+}
+
+enum IdType {
+  CCCD
+  PASSPORT
+  DRIVER_LICENSE
+  OTHER
+}
+
+enum BillStatus {
+  OPEN
+  FINALIZED
+  SETTLED
 }
 </file>
 
@@ -8954,7 +9046,7 @@ export function BookingCalendar() {
           </div>
         )}
 
-        <div className="flex flex-1">
+        <div className="flex flex-1 overflow-y-auto min-h-[400px]">
           {/* ── Fixed left column (room names) ── */}
           <div
             className="flex-none border-r bg-muted/30 z-10"
@@ -8998,7 +9090,7 @@ export function BookingCalendar() {
           {/* ── Scrollable timeline grid ── */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-x-auto overflow-y-hidden hide-scrollbar"
+            className="flex-1 overflow-x-auto hide-scrollbar"
             style={{ 
               WebkitOverflowScrolling: "touch",
               scrollSnapType: "x mandatory", // optional: smooth snapping

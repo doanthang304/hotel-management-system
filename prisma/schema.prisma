@@ -116,7 +116,6 @@ model Guest {
   nationality String?  @default("Vi\u1ec7t Nam") @db.VarChar(100)
   address     String?
   dateOfBirth DateTime? @db.Date
-  isVip       Boolean  @default(false)
   notes       String?
   totalStays  Int      @default(0)
   totalSpent  Decimal  @default(0) @db.Decimal(14, 0)
@@ -135,7 +134,7 @@ model Booking {
   roomId          String        @db.Uuid
   guestId         String        @db.Uuid
   createdBy       String        @db.Uuid
-  bookingCode     String        @unique @db.VarChar(20)
+  bookingCode     String        @db.VarChar(50)
   checkInDate     DateTime      @db.Date
   checkOutDate    DateTime      @db.Date
   numNights       Int           @db.SmallInt
@@ -157,6 +156,7 @@ model Booking {
   bookingServices BookingService[]
   bill            Bill?
 
+  @@unique([hotelId, bookingCode])
   @@map("bookings")
 }
 
@@ -281,6 +281,8 @@ enum BookingSource {
   BOOKING_COM
   AGODA
   AIRBNB
+  DIRECT
+  PHONE
   OTHER
 }
 

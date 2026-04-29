@@ -28,13 +28,12 @@ const mainNav = [
   { href: "/rooms",       label: "Phòng",       icon: BedDouble },
   { href: "/guests",      label: "Khách hàng",  icon: Users },
   { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
-  { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
+  // { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
 ];
 
 const settingsNav = [
   { href: "/onboarding",     label: "Thiết lập khách sạn", icon: Building2 },
-  { href: "/rooms/settings", label: "Cài đặt phòng", icon: Settings },
-  { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
+  // { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
 ];
 
 export function Sidebar({ className }: SidebarProps) {
@@ -57,6 +56,7 @@ export function Sidebar({ className }: SidebarProps) {
           <Button
             className="w-full justify-start gap-2 mb-3"
             render={<Link href="/bookings/new" />}
+            nativeButton={false}
           >
             <PlusCircle className="h-4 w-4" />
             Tạo booking mới
@@ -70,6 +70,7 @@ export function Sidebar({ className }: SidebarProps) {
                 variant={isActive(href) ? "secondary" : "ghost"}
                 className="w-full justify-start"
                 render={<Link href={href} />}
+                nativeButton={false}
               >
                 <Icon className="mr-2 h-4 w-4" />
                 {label}
@@ -90,6 +91,7 @@ export function Sidebar({ className }: SidebarProps) {
                 variant={isActive(href) ? "secondary" : "ghost"}
                 className="w-full justify-start"
                 render={<Link href={href} />}
+                nativeButton={false}
               >
                 <Icon className="mr-2 h-4 w-4" />
                 {label}

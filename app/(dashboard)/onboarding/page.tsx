@@ -15,10 +15,10 @@ import {
   Loader2,
   Plus,
   ArrowLeft,
-  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatVND } from "@/lib/utils";
+
+import Link from "next/link";
 
 type RoomType = {
   id: string;
@@ -253,7 +253,7 @@ export default function HotelSetupPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={setRTypeId} required>
+                    <Select value={rTypeId} onValueChange={(setRTypeId) => (setRTypeId ?? '')} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn loại phòng..." />
                       </SelectTrigger>

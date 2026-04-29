@@ -119,7 +119,11 @@ export default function BillsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" render={<Link href={`/bills/${bill.id}`} />}>
+                    <Button variant="ghost" 
+                            size="icon" 
+                            nativeButton={false} 
+                            render={<Link href={`/bills/${bill.id}`} 
+                            />}>
                       <Eye className="h-4 w-4" />
                     </Button>
                   </TableCell>

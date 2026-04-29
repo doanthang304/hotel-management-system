@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatVND } from "@/lib/utils";
 import { 
   Table, 
   TableBody, 
@@ -16,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 
 type Room = {
   id: string;
@@ -63,7 +63,7 @@ export default function RoomsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Quản lý Phòng</h2>
-        <Button disabled>
+        <Button render={<Link href="/onboarding" />} nativeButton={false}>
           <Plus className="mr-2 h-4 w-4" /> Thêm phòng
         </Button>
       </div>
@@ -91,7 +91,6 @@ export default function RoomsPage() {
                 <TableRow>
                   <TableHead>Số phòng</TableHead>
                   <TableHead>Hạng phòng</TableHead>
-                  <TableHead>Giá mặc định</TableHead>
                   <TableHead>Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
@@ -113,9 +112,6 @@ export default function RoomsPage() {
                     <TableRow key={room.id}>
                       <TableCell className="font-bold">P{room.roomNumber}</TableCell>
                       <TableCell>{room.roomType.name}</TableCell>
-                      <TableCell>
-                        {formatVND(room.roomType.roomPrices.find(p => p.isDefault)?.pricePerNight || 0)}
-                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusVariants[room.status]}>
                           {statusLabels[room.status]}

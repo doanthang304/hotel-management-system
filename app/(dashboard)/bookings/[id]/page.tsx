@@ -18,7 +18,8 @@ import {
   Ban,
   Receipt,
   Plus,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
   const [booking, setBooking] = useState<BookingWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [addingService, setAddingService] = useState(false);
+  const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({
     serviceName: "",
     unitPrice: 0,
@@ -117,6 +119,29 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleDeleteService = async (serviceId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa dịch vụ này không?")) return;
+    
+    try {
+      setDeletingServiceId(serviceId);
+      const res = await fetch(`/api/bookings/${id}/services/${serviceId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Không thể xóa dịch vụ");
+      }
+
+      toast.success("Đã xóa dịch vụ");
+      fetchBooking();
+    } catch (error: any) {
+      toast.error(error.message || "Lỗi hệ thống");
+    } finally {
+      setDeletingServiceId(null);
+    }
+  };
+
   const handleAction = async (action: string) => {
     try {
       const res = await fetch(`/api/bookings/${id}/${action}`, { method: "POST" });
@@ -152,7 +177,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             <Printer className="h-4 w-4 mr-2" /> In phiếu
           </Button>
           {booking.status === "CHECKED_IN" && booking.bill?.id && (
-            <Button variant="default" render={<Link href={`/bills/${booking.bill.id}`} />}>
+            <Button variant="default" nativeButton={false} render={<Link href={`/bills/${booking.bill.id}`}  />}>
               <Receipt className="h-4 w-4 mr-2" /> Xem hóa đơn
             </Button>
           )}
@@ -230,14 +255,33 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               ) : (
                 <div className="space-y-2">
                   {booking.bookingServices?.map((service: BookingService) => (
-                    <div key={service.id} className="rounded-md border p-3 flex items-center justify-between">
+                    <div key={service.id} className="rounded-md border p-3 flex items-center justify-between group">
                       <div>
                         <p className="font-medium">{service.serviceName}</p>
                         <p className="text-xs text-muted-foreground">
                           {Number(service.quantity)} x {formatVND(Number(service.unitPrice))}
                         </p>
                       </div>
-                      <p className="font-semibold">{formatVND(Number(service.subtotal))}</p>
+                      <div className="flex items-center space-x-4">
+                        <p className="font-semibold">{formatVND(Number(service.subtotal))}</p>
+                        
+                        {/* Nút Xóa (chỉ hiển thị khi đang CHECKED_IN) */}
+                        {booking.status === "CHECKED_IN" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                            disabled={deletingServiceId === service.id}
+                            onClick={() => handleDeleteService(service.id)}
+                          >
+                            {deletingServiceId === service.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -344,7 +388,6 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="text-sm text-muted-foreground">Họ tên</p>
                 <p className="font-bold">{booking.guest.fullName}</p>
-                {booking.guest.isVip && <Badge className="bg-amber-500 mt-1">VIP</Badge>}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Số điện thoại</p>

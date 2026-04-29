@@ -25,6 +25,7 @@ const BookingCreateSchema = z.object({
   source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("WALKIN"),
   specialRequests: z.string().optional(),
   internalNotes: z.string().optional(),
+  bookingCode: z.string().max(50).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -130,12 +131,10 @@ export async function POST(req: NextRequest) {
       guestId = guest.id;
     }
 
-    let bookingCode = "";
+    let bookingCode = data.bookingCode?.trim() || "";
     let booking: Awaited<ReturnType<typeof prisma.booking.create>> | null = null;
-    const maxCreateAttempts = 5;
 
-    for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
-      bookingCode = await generateBookingCode(hotelId);
+    if (bookingCode) {
       try {
         booking = await prisma.booking.create({
           data: {
@@ -159,24 +158,58 @@ export async function POST(req: NextRequest) {
             guest: true,
           },
         });
-        break;
-      } catch (createError) {
-        const target = createError instanceof Prisma.PrismaClientKnownRequestError
-          ? createError.meta?.target
-          : undefined;
-        const targetFields = Array.isArray(target)
-          ? target
-          : typeof target === "string"
-            ? [target]
-            : [];
+      } catch (createError: any) {
+        if (createError instanceof Prisma.PrismaClientKnownRequestError && createError.code === "P2002") {
+          return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
+        }
+        throw createError;
+      }
+    } else {
+      const maxCreateAttempts = 5;
+      for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
+        bookingCode = await generateBookingCode(hotelId);
+        try {
+          booking = await prisma.booking.create({
+            data: {
+              hotelId,
+              roomId: data.roomId,
+              guestId,
+              createdBy: session.user.id,
+              bookingCode,
+              checkInDate: checkIn,
+              checkOutDate: checkOut,
+              numNights: data.numNights,
+              roomRate: data.roomRate,
+              depositAmount: data.depositAmount,
+              status: "PENDING",
+              source: data.source,
+              specialRequests: data.specialRequests,
+              internalNotes: data.internalNotes,
+            },
+            include: {
+              room: { include: { roomType: true } },
+              guest: true,
+            },
+          });
+          break;
+        } catch (createError) {
+          const target = createError instanceof Prisma.PrismaClientKnownRequestError
+            ? createError.meta?.target
+            : undefined;
+          const targetFields = Array.isArray(target)
+            ? target
+            : typeof target === "string"
+              ? [target]
+              : [];
 
-        const isBookingCodeCollision =
-          createError instanceof Prisma.PrismaClientKnownRequestError &&
-          createError.code === "P2002" &&
-          targetFields.some((field) => field.includes("bookingCode"));
+          const isBookingCodeCollision =
+            createError instanceof Prisma.PrismaClientKnownRequestError &&
+            createError.code === "P2002" &&
+            targetFields.some((field) => field.includes("bookingCode"));
 
-        if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
-          throw createError;
+          if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
+            throw createError;
+          }
         }
       }
     }
