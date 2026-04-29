@@ -5,21 +5,30 @@ import { format, startOfDay, endOfDay } from "date-fns";
  * Tạo mã booking tự động: BK{YYYYMMDD}-{NNN}
  * Ví dụ: BK20240427-001
  */
-export async function generateBookingCode(hotelId: string): Promise<string> {
+export async function generateBookingCode(_hotelId: string): Promise<string> {
   const today = new Date();
   const dateStr = format(today, "yyyyMMdd");
 
-  const count = await prisma.booking.count({
+  const lastBooking = await prisma.booking.findFirst({
     where: {
-      hotelId,
-      createdAt: {
-        gte: startOfDay(today),
-        lte: endOfDay(today),
+      bookingCode: {
+        startsWith: `BK${dateStr}-`,
       },
+    },
+    orderBy: {
+      bookingCode: "desc",
     },
   });
 
-  return `BK${dateStr}-${String(count + 1).padStart(3, "0")}`;
+  let nextSequence = 1;
+  if (lastBooking) {
+    const parts = lastBooking.bookingCode.split("-");
+    if (parts.length === 2) {
+      nextSequence = parseInt(parts[1], 10) + 1;
+    }
+  }
+
+  return `BK${dateStr}-${String(nextSequence).padStart(3, "0")}`;
 }
 
 /**

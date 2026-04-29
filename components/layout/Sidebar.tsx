@@ -1,77 +1,101 @@
+"use client";
+
 import Link from "next/link";
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  BedDouble, 
-  Users, 
-  Settings, 
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  BedDouble,
+  Users,
+  Settings,
   ReceiptText,
   ClipboardList,
   BarChart3,
   Brush,
-  ShoppingBag
+  ShoppingBag,
+  PlusCircle,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
+const mainNav = [
+  { href: "/dashboard",   label: "Tổng quan",   icon: LayoutDashboard },
+  { href: "/calendar",    label: "Lịch phòng",  icon: CalendarDays },
+  { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
+  { href: "/rooms",       label: "Phòng",       icon: BedDouble },
+  { href: "/guests",      label: "Khách hàng",  icon: Users },
+  { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
+  { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
+  { href: "/housekeeping",label: "Buồng phòng", icon: Brush },
+];
+
+const settingsNav = [
+  { href: "/onboarding",     label: "Thiết lập khách sạn", icon: Building2 },
+  { href: "/rooms/settings", label: "Cài đặt phòng", icon: Settings },
+  { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
+];
+
 export function Sidebar({ className }: SidebarProps) {
+  const pathname = usePathname();
+
+  function isActive(href: string) {
+    if (href === "/dashboard") return pathname === "/dashboard";
+    return pathname.startsWith(href);
+  }
+
   return (
     <div className={cn("pb-12 border-r h-full", className)}>
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+          <h2 className="mb-3 px-4 text-lg font-semibold tracking-tight">
             Tiny HMS
           </h2>
-          <div className="space-y-1">
-            <Button variant="secondary" className="w-full justify-start" render={<Link href="/dashboard" />}>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Tổng quan
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/calendar" />}>
-              <CalendarDays className="mr-2 h-4 w-4" />
-              Lịch phòng
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/bookings" />}>
-              <ClipboardList className="mr-2 h-4 w-4" />
-              Bookings
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/rooms" />}>
-              <BedDouble className="mr-2 h-4 w-4" />
-              Phòng
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/guests" />}>
-              <Users className="mr-2 h-4 w-4" />
-              Khách hàng
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/bills" />}>
-              <ReceiptText className="mr-2 h-4 w-4" />
-              Hóa đơn
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/reports" />}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Báo cáo
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/housekeeping" />}>
-              <Brush className="mr-2 h-4 w-4" />
-              Buồng phòng
-            </Button>
+
+          {/* ── New Booking CTA ── */}
+          <Button
+            className="w-full justify-start gap-2 mb-3"
+            render={<Link href="/bookings/new" />}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Tạo booking mới
+          </Button>
+
+          {/* ── Main nav ── */}
+          <div className="space-y-0.5">
+            {mainNav.map(({ href, label, icon: Icon }) => (
+              <Button
+                key={href}
+                variant={isActive(href) ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                render={<Link href={href} />}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {label}
+              </Button>
+            ))}
           </div>
         </div>
+
+        {/* ── Settings section ── */}
         <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+          <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Cài đặt
           </h2>
-          <div className="space-y-1">
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/rooms/settings" />}>
-              <Settings className="mr-2 h-4 w-4" />
-              Cài đặt phòng
-            </Button>
-            <Button variant="ghost" className="w-full justify-start" render={<Link href="/services" />}>
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              Dịch vụ
-            </Button>
+          <div className="space-y-0.5">
+            {settingsNav.map(({ href, label, icon: Icon }) => (
+              <Button
+                key={href}
+                variant={isActive(href) ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                render={<Link href={href} />}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {label}
+              </Button>
+            ))}
           </div>
         </div>
       </div>

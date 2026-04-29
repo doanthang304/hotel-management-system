@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateBookingCode, checkRoomAvailability } from "@/lib/booking-code";
@@ -129,30 +130,63 @@ export async function POST(req: NextRequest) {
       guestId = guest.id;
     }
 
-    const bookingCode = await generateBookingCode(hotelId);
+    let bookingCode = "";
+    let booking: Awaited<ReturnType<typeof prisma.booking.create>> | null = null;
+    const maxCreateAttempts = 5;
 
-    const booking = await prisma.booking.create({
-      data: {
-        hotelId,
-        roomId: data.roomId,
-        guestId,
-        createdBy: session.user.id,
-        bookingCode,
-        checkInDate: checkIn,
-        checkOutDate: checkOut,
-        numNights: data.numNights,
-        roomRate: data.roomRate,
-        depositAmount: data.depositAmount,
-        status: "PENDING",
-        source: data.source,
-        specialRequests: data.specialRequests,
-        internalNotes: data.internalNotes,
-      },
-      include: {
-        room: { include: { roomType: true } },
-        guest: true,
-      },
-    });
+    for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
+      bookingCode = await generateBookingCode(hotelId);
+      try {
+        booking = await prisma.booking.create({
+          data: {
+            hotelId,
+            roomId: data.roomId,
+            guestId,
+            createdBy: session.user.id,
+            bookingCode,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            numNights: data.numNights,
+            roomRate: data.roomRate,
+            depositAmount: data.depositAmount,
+            status: "PENDING",
+            source: data.source,
+            specialRequests: data.specialRequests,
+            internalNotes: data.internalNotes,
+          },
+          include: {
+            room: { include: { roomType: true } },
+            guest: true,
+          },
+        });
+        break;
+      } catch (createError) {
+        const target = createError instanceof Prisma.PrismaClientKnownRequestError
+          ? createError.meta?.target
+          : undefined;
+        const targetFields = Array.isArray(target)
+          ? target
+          : typeof target === "string"
+            ? [target]
+            : [];
+
+        const isBookingCodeCollision =
+          createError instanceof Prisma.PrismaClientKnownRequestError &&
+          createError.code === "P2002" &&
+          targetFields.some((field) => field.includes("bookingCode"));
+
+        if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
+          throw createError;
+        }
+      }
+    }
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Không thể tạo mã booking duy nhất, vui lòng thử lại." },
+        { status: 409 }
+      );
+    }
 
     // Log audit
     await prisma.auditLog.create({
@@ -167,8 +201,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ data: booking }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /api/bookings error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi hệ thống: " + (error.message || String(error)) }, { status: 500 });
   }
 }

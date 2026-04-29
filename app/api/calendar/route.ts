@@ -16,31 +16,48 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const bookings = await prisma.booking.findMany({
-      where: {
-        hotelId: session.user.hotelId,
-        checkInDate: { lte: new Date(end) },
-        checkOutDate: { gte: new Date(start) },
-        status: { not: "CANCELLED" }
-      },
-      include: {
-        guest: { select: { fullName: true } },
-        room: { select: { roomNumber: true } }
-      }
-    });
+    const hotelId = session.user.hotelId;
 
-    const events = bookings.map(b => ({
+    const [rooms, bookings] = await Promise.all([
+      prisma.room.findMany({
+        where: { hotelId },
+        include: { roomType: { select: { name: true } } },
+        orderBy: { roomNumber: "asc" },
+      }),
+      prisma.booking.findMany({
+        where: {
+          hotelId,
+          checkInDate: { lte: new Date(end) },
+          checkOutDate: { gte: new Date(start) },
+          status: { not: "CANCELLED" },
+        },
+        include: {
+          guest: { select: { fullName: true } },
+          room: { select: { roomNumber: true } },
+        },
+      }),
+    ]);
+
+    const events = bookings.map((b) => ({
       id: b.id,
-      title: `${b.room.roomNumber} - ${b.guest.fullName}`,
+      roomId: b.roomId,
+      title: b.guest.fullName,
       start: b.checkInDate,
       end: b.checkOutDate,
-      extendedProps: {
-        status: b.status,
-        bookingCode: b.bookingCode
-      }
+      status: b.status,
+      bookingCode: b.bookingCode,
+      roomNumber: b.room.roomNumber,
     }));
 
-    return NextResponse.json({ data: events });
+    const roomList = rooms.map((r) => ({
+      id: r.id,
+      roomNumber: r.roomNumber,
+      floor: r.floor,
+      status: r.status,
+      roomTypeName: r.roomType.name,
+    }));
+
+    return NextResponse.json({ data: { rooms: roomList, events } });
   } catch (error) {
     console.error("GET /api/calendar error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });

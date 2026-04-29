@@ -26,3 +26,46 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const { roomTypeId, roomNumber, floor } = body;
+
+    if (!roomTypeId || !roomNumber) {
+      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+    }
+
+    // Check if room number already exists for this hotel
+    const existing = await prisma.room.findUnique({
+      where: {
+        hotelId_roomNumber: {
+          hotelId: session.user.hotelId,
+          roomNumber: roomNumber.trim(),
+        }
+      }
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: `Số phòng ${roomNumber} đã tồn tại` }, { status: 400 });
+    }
+
+    const newRoom = await prisma.room.create({
+      data: {
+        hotelId: session.user.hotelId,
+        roomTypeId,
+        roomNumber: roomNumber.trim(),
+        floor: floor ? Number(floor) : null,
+      },
+      include: { roomType: true }
+    });
+
+    return NextResponse.json({ data: newRoom });
+  } catch (error) {
+    console.error("POST /api/rooms error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
