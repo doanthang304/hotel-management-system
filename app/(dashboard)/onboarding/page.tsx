@@ -7,14 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Building2, 
   BedDouble, 
-  Users, 
-  ArrowRight,
-  CheckCircle2,
+  DoorOpen, 
   Loader2,
-  Plus
+  Plus,
+  ArrowLeft,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND } from "@/lib/utils";
@@ -32,9 +33,9 @@ type Room = {
   roomType: { name: string };
 };
 
-export default function OnboardingPage() {
+export default function HotelSetupPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [activeTab, setActiveTab] = useState("room-types");
   
   // Data
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
@@ -43,7 +44,6 @@ export default function OnboardingPage() {
 
   // Forms
   const [rtName, setRtName] = useState("");
-  const [rtPrice, setRtPrice] = useState("");
   const [rtOccupancy, setRtOccupancy] = useState("2");
   const [loadingRt, setLoadingRt] = useState(false);
 
@@ -71,7 +71,7 @@ export default function OnboardingPage() {
         setRooms(rJson.data || []);
       }
     } catch (error) {
-      console.error("Error fetching onboarding data:", error);
+      console.error("Error fetching setup data:", error);
     } finally {
       setLoadingData(false);
     }
@@ -79,7 +79,7 @@ export default function OnboardingPage() {
 
   const handleCreateRoomType = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rtName || !rtPrice) return toast.error("Vui lòng điền đủ thông tin");
+    if (!rtName) return toast.error("Vui lòng điền tên loại phòng");
     setLoadingRt(true);
     try {
       const res = await fetch("/api/room-types", {
@@ -87,7 +87,6 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: rtName,
-          pricePerNight: Number(rtPrice),
           maxOccupancy: Number(rtOccupancy),
         }),
       });
@@ -96,7 +95,6 @@ export default function OnboardingPage() {
       
       toast.success("Tạo loại phòng thành công");
       setRtName("");
-      setRtPrice("");
       setRoomTypes([...roomTypes, data.data]);
     } catch (error: any) {
       toast.error(error.message || "Có lỗi xảy ra");
@@ -122,7 +120,7 @@ export default function OnboardingPage() {
       if (!res.ok) throw new Error(data.error);
       
       toast.success(`Đã tạo phòng ${rNumber}`);
-      setRNumber(""); // Reset cho phòng tiếp theo
+      setRNumber("");
       setRooms([...rooms, data.data]);
     } catch (error: any) {
       toast.error(error.message || "Có lỗi xảy ra");
@@ -131,64 +129,45 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleComplete = () => {
-    toast.success("Thiết lập hoàn tất!");
-    router.push("/dashboard");
-  };
-
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] py-8">
-      <Card className="w-full max-w-3xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Thiết lập Tiny HMS</CardTitle>
-          <CardDescription>Hoàn thành các bước cơ bản để bắt đầu sử dụng.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {/* Progress bar */}
-          <div className="flex justify-between relative px-8">
-            <div className="absolute top-1/2 left-8 right-8 h-0.5 bg-slate-200 -z-10 -translate-y-1/2"></div>
-            {[1, 2, 3].map((s) => (
-              <div 
-                key={s} 
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 bg-white ${
-                  step >= s ? "border-primary text-primary" : "border-slate-300 text-slate-300"
-                }`}
-              >
-                {step > s ? <CheckCircle2 className="h-6 w-6" /> : s}
-              </div>
-            ))}
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Thiết lập khách sạn</h2>
+            <p className="text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
           </div>
+        </div>
+        <Button onClick={() => router.push("/dashboard")}>
+          Về Dashboard
+        </Button>
+      </div>
 
-          {/* STEP 1 */}
-          {step === 1 && (
-            <div className="space-y-6 py-4 text-center">
-              <Building2 className="h-16 w-16 mx-auto text-primary opacity-20" />
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Thông tin khách sạn</h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                  Chào mừng bạn đến với Tiny HMS. Để phần mềm hoạt động đúng chức năng cốt lõi (Lịch phòng), bạn cần thiết lập ít nhất 1 loại phòng và 1 phòng.
-                </p>
-              </div>
-              <Button size="lg" onClick={() => setStep(2)}>
-                Bắt đầu thiết lập <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="room-types" className="flex items-center gap-2">
+            <BedDouble className="h-4 w-4" />
+            Loại phòng
+          </TabsTrigger>
+          <TabsTrigger value="rooms" className="flex items-center gap-2">
+            <DoorOpen className="h-4 w-4" />
+            Phòng
+          </TabsTrigger>
+        </TabsList>
 
-          {/* STEP 2 */}
-          {step === 2 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="text-center space-y-2">
-                <BedDouble className="h-12 w-12 mx-auto text-primary opacity-20" />
-                <h3 className="text-xl font-semibold">Tạo Loại Phòng</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ví dụ: Standard, Deluxe, Ban Công, Giường đôi...
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Form */}
-                <form onSubmit={handleCreateRoomType} className="space-y-4 rounded-lg border p-4 bg-slate-50/50">
+        {/* ROOM TYPES TAB */}
+        <TabsContent value="room-types" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm loại phòng</CardTitle>
+                <CardDescription>Tạo các hạng phòng như Standard, Deluxe...</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoomType} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Tên loại phòng (*)</Label>
                     <Input 
@@ -196,17 +175,6 @@ export default function OnboardingPage() {
                       value={rtName} 
                       onChange={(e) => setRtName(e.target.value)} 
                       required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Giá mặc định (VNĐ) (*)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="VD: 500000" 
-                      value={rtPrice} 
-                      onChange={(e) => setRtPrice(e.target.value)} 
-                      required 
-                      min="0"
                     />
                   </div>
                   <div className="space-y-2">
@@ -220,78 +188,72 @@ export default function OnboardingPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={loadingRt}>
                     {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Thêm loại phòng
+                    Tạo loại phòng
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
 
-                {/* List */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Danh sách đã tạo ({roomTypes.length})</h4>
-                  <div className="border rounded-lg bg-white overflow-y-auto max-h-[300px]">
-                    {roomTypes.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        Chưa có loại phòng nào
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {roomTypes.map((rt) => (
-                          <div key={rt.id} className="p-3 text-sm flex justify-between items-center hover:bg-slate-50">
-                            <div>
-                              <p className="font-medium">{rt.name}</p>
-                              <p className="text-xs text-muted-foreground">Tối đa: {rt.maxOccupancy} khách</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-emerald-600">
-                                {rt.roomPrices?.[0] ? formatVND(rt.roomPrices[0].pricePerNight) : 'Chưa có giá'}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách loại phòng ({roomTypes.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : roomTypes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có loại phòng nào.
                   </div>
-                </div>
-              </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
+                          <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
+                          <th className="px-4 py-3 text-center font-medium">Số phòng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {roomTypes.map((rt: any) => (
+                          <tr key={rt.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 font-medium">{rt.name}</td>
+                            <td className="px-4 py-3 text-center">{rt.maxOccupancy} khách</td>
+                            <td className="px-4 py-3 text-center">{(rt as any)._count?.rooms || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-              <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
-                <Button 
-                  onClick={() => setStep(3)} 
-                  disabled={roomTypes.length === 0}
-                >
-                  Tiếp theo <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3 */}
-          {step === 3 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="text-center space-y-2">
-                <Users className="h-12 w-12 mx-auto text-primary opacity-20" />
-                <h3 className="text-xl font-semibold">Tạo Phòng</h3>
-                <p className="text-sm text-muted-foreground">
-                  Thêm từng phòng và gắn vào loại phòng tương ứng.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Form */}
-                <form onSubmit={handleCreateRoom} className="space-y-4 rounded-lg border p-4 bg-slate-50/50">
+        {/* ROOMS TAB */}
+        <TabsContent value="rooms" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm phòng mới</CardTitle>
+                <CardDescription>Đánh số phòng và gán vào loại phòng.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoom} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Số phòng/Tên phòng (*)</Label>
+                    <Label>Số phòng (*)</Label>
                     <Input 
-                      placeholder="VD: 101, P101, R101..." 
+                      placeholder="VD: 101, P101..." 
                       value={rNumber} 
                       onChange={(e) => setRNumber(e.target.value)} 
                       required 
-                      autoFocus
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Thuộc loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
+                    <Label>Loại phòng (*)</Label>
+                    <Select value={rTypeId} onValueChange={setRTypeId} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn loại phòng..." />
                       </SelectTrigger>
@@ -304,48 +266,45 @@ export default function OnboardingPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
                     {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Thêm phòng này
+                    Tạo phòng
                   </Button>
+                  {roomTypes.length === 0 && (
+                    <p className="text-[10px] text-destructive text-center mt-2">
+                      Bạn cần tạo Loại phòng trước khi tạo Phòng.
+                    </p>
+                  )}
                 </form>
+              </CardContent>
+            </Card>
 
-                {/* List */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Phòng đã tạo ({rooms.length})</h4>
-                  <div className="border rounded-lg bg-white overflow-y-auto max-h-[300px]">
-                    {rooms.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        Chưa có phòng nào
-                      </div>
-                    ) : (
-                      <div className="divide-y">
-                        {rooms.map((r) => (
-                          <div key={r.id} className="p-3 text-sm flex justify-between items-center hover:bg-slate-50">
-                            <span className="font-bold text-base">{r.roomNumber}</span>
-                            <span className="text-muted-foreground bg-slate-100 px-2 py-0.5 rounded text-xs">
-                              {r.roomType.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : rooms.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có phòng nào.
                   </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(2)}>Quay lại</Button>
-                <Button 
-                  onClick={handleComplete}
-                  disabled={rooms.length === 0}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  Hoàn tất thiết lập
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {rooms.map((r) => (
+                      <div key={r.id} className="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 bg-white hover:border-primary transition-colors">
+                        <span className="text-xl font-bold">{r.roomNumber}</span>
+                        <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded">
+                          {r.roomType.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

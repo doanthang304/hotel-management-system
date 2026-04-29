@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, maxOccupancy, pricePerNight } = body;
 
-    if (!name || maxOccupancy == null || pricePerNight == null) {
+    if (!name || maxOccupancy == null) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
     }
 
@@ -64,14 +64,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      await tx.roomPrice.create({
-        data: {
-          roomTypeId: rt.id,
-          label: "Giá mặc định",
-          pricePerNight: Number(pricePerNight),
-          isDefault: true,
-        },
-      });
+      if (pricePerNight != null) {
+        await tx.roomPrice.create({
+          data: {
+            roomTypeId: rt.id,
+            label: "Giá mặc định",
+            pricePerNight: Number(pricePerNight),
+            isDefault: true,
+          },
+        });
+      }
 
       return rt;
     });

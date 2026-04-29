@@ -22,7 +22,7 @@ const BookingCreateSchema = z.object({
   numNights: z.number().int().min(1),
   roomRate: z.number().min(0),
   depositAmount: z.number().min(0).default(0),
-  source: z.enum(["DIRECT", "PHONE", "WALKIN", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("DIRECT"),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("WALKIN"),
   specialRequests: z.string().optional(),
   internalNotes: z.string().optional(),
 });
