@@ -3,18 +3,10 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { 
   ArrowLeft, 
   Printer, 
@@ -33,14 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import Link from "next/link";
-
-type ServiceOption = {
-  id: string;
-  name: string;
-  unit: string;
-  unitPrice: number;
-  isActive: boolean;
-};
+import type { BookingService, BookingWithRelations } from "@/types";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Chờ duyệt",
@@ -63,12 +48,12 @@ const statusVariants: Record<string, string> = {
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
-  const [booking, setBooking] = useState<any>(null);
+  const [booking, setBooking] = useState<BookingWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
-  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
   const [addingService, setAddingService] = useState(false);
   const [newService, setNewService] = useState({
-    serviceId: "",
+    serviceName: "",
+    unitPrice: 0,
     quantity: 1,
   });
 
@@ -77,9 +62,10 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
       const res = await fetch(`/api/bookings/${id}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setBooking(json.data);
-    } catch (error: any) {
-      toast.error(error.message || "Không thể tải chi tiết booking");
+      setBooking(json.data as BookingWithRelations);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Không thể tải chi tiết booking";
+      toast.error(message);
       router.push("/bookings");
     } finally {
       setLoading(false);
@@ -87,27 +73,17 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBooking();
   }, [id]);
 
-  useEffect(() => {
-    async function fetchServices() {
-      try {
-        const res = await fetch("/api/services");
-        const json = await res.json();
-        setServiceOptions(json.data || []);
-      } catch {
-        toast.error("Không thể tải danh mục dịch vụ");
-      }
-    }
-    fetchServices();
-  }, []);
-
-  const selectedService = serviceOptions.find((s) => s.id === newService.serviceId);
-
   const handleAddService = async () => {
-    if (!newService.serviceId) {
-      toast.error("Vui lòng chọn dịch vụ");
+    if (!newService.serviceName.trim()) {
+      toast.error("Vui lòng nhập tên dịch vụ");
+      return;
+    }
+    if (!Number.isFinite(newService.unitPrice) || newService.unitPrice < 0) {
+      toast.error("Đơn giá không hợp lệ");
       return;
     }
     if (!Number.isFinite(newService.quantity) || newService.quantity <= 0) {
@@ -121,7 +97,8 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId: newService.serviceId,
+          serviceName: newService.serviceName,
+          unitPrice: Number(newService.unitPrice),
           quantity: Number(newService.quantity),
         }),
       });
@@ -130,10 +107,11 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
       if (!res.ok) throw new Error(json.error || "Không thể thêm dịch vụ");
 
       toast.success("Đã thêm dịch vụ vào booking");
-      setNewService({ serviceId: "", quantity: 1 });
+      setNewService({ serviceName: "", unitPrice: 0, quantity: 1 });
       fetchBooking();
-    } catch (error: any) {
-      toast.error(error.message || "Lỗi hệ thống");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Lỗi hệ thống";
+      toast.error(message);
     } finally {
       setAddingService(false);
     }
@@ -251,7 +229,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-sm text-muted-foreground italic">Chưa có dịch vụ nào được thêm.</p>
               ) : (
                 <div className="space-y-2">
-                  {booking.bookingServices?.map((service: any) => (
+                  {booking.bookingServices?.map((service: BookingService) => (
                     <div key={service.id} className="rounded-md border p-3 flex items-center justify-between">
                       <div>
                         <p className="font-medium">{service.serviceName}</p>
@@ -268,26 +246,34 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               <Separator />
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div className="md:col-span-7 space-y-1">
-                  <Label>Dịch vụ</Label>
-                  <Select
-                    value={newService.serviceId}
-                    onValueChange={(value) => setNewService((prev) => ({ ...prev, serviceId: value }))}
+                <div className="md:col-span-5 space-y-1">
+                  <Label>Tên dịch vụ</Label>
+                  <Input
+                    value={newService.serviceName}
                     disabled={booking.status !== "CHECKED_IN" || addingService}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn dịch vụ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceOptions
-                        .filter((s) => s.isActive)
-                        .map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name} ({formatVND(Number(s.unitPrice))}/{s.unit})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="VD: Giặt ủi, Ăn sáng..."
+                    onChange={(e) =>
+                      setNewService((prev) => ({
+                        ...prev,
+                        serviceName: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="md:col-span-3 space-y-1">
+                  <Label>Đơn giá (VND)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={newService.unitPrice}
+                    disabled={booking.status !== "CHECKED_IN" || addingService}
+                    onChange={(e) =>
+                      setNewService((prev) => ({
+                        ...prev,
+                        unitPrice: Number(e.target.value),
+                      }))
+                    }
+                  />
                 </div>
                 <div className="md:col-span-2 space-y-1">
                   <Label>SL</Label>
@@ -304,7 +290,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                     }
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <Button
                     className="w-full"
                     onClick={handleAddService}
@@ -315,16 +301,14 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                     ) : (
                       <Plus className="h-4 w-4 mr-2" />
                     )}
-                    Thêm dịch vụ
+                    Thêm
                   </Button>
                 </div>
               </div>
 
-              {selectedService && (
-                <div className="text-sm text-muted-foreground">
-                  Tạm tính: {formatVND(Number(selectedService.unitPrice) * Number(newService.quantity || 0))}
-                </div>
-              )}
+              <div className="text-sm text-muted-foreground">
+                Tạm tính: {formatVND(Number(newService.unitPrice) * Number(newService.quantity || 0))}
+              </div>
             </CardContent>
           </Card>
 
@@ -396,6 +380,15 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
                 <Button variant="outline" className="w-full justify-start text-red-500 border-red-500/20 hover:bg-red-50" onClick={() => handleAction("cancel")}>
                   <Ban className="mr-2 h-4 w-4" /> Hủy đặt phòng
+                </Button>
+              )}
+              {booking.status === "CHECKED_OUT" && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-orange-500/20 text-orange-600 hover:bg-orange-50"
+                  onClick={() => handleAction("undo-checkout")}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" /> Hoàn tác Check-out
                 </Button>
               )}
             </CardContent>

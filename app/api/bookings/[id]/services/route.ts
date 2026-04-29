@@ -64,7 +64,10 @@ export async function POST(
       if (!serviceName.trim()) {
         return NextResponse.json({ error: "Thiếu tên dịch vụ" }, { status: 400 });
       }
-      unitPrice = data.unitPrice ?? 0;
+      if (data.unitPrice === undefined) {
+        return NextResponse.json({ error: "Vui lòng nhập đơn giá" }, { status: 400 });
+      }
+      unitPrice = data.unitPrice;
     }
 
     const quantity = Number(data.quantity);

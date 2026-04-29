@@ -44,3 +44,4 @@ next-env.d.ts
 /app/generated/prisma
 
 .xml
+tiny_hms_ide_prompt.md

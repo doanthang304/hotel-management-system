@@ -117,6 +117,7 @@ export function BookingCalendar() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData(startDate, endDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, numDays]);
@@ -136,15 +137,26 @@ export function BookingCalendar() {
     const evStart = startOfDay(parseISO(event.start as string));
     const evEnd = startOfDay(parseISO(event.end as string));
 
-    const clampedStart = evStart < startDate ? startDate : evStart;
-    const clampedEnd = evEnd > addDays(endDate, 1) ? addDays(endDate, 1) : evEnd;
+    // Visual semantics:
+    // - booking bar bắt đầu tại nửa sau ngày nhận phòng
+    // - và kết thúc tại hết sáng của ngày trả phòng
+    // So with x-axis = days, we use half-day offsets.
+    const leftEdgeDays = differenceInDays(evStart, startDate) + 0.5;
+    const rightEdgeDays = differenceInDays(evEnd, startDate) + 0.5;
 
-    const offsetDays = differenceInDays(clampedStart, startDate);
-    const spanDays = differenceInDays(clampedEnd, clampedStart);
+    // Clamp by the visible range in half-day units:
+    // The grid spans `numDays` full days => time window [0, numDays].
+    const clampedLeft = Math.max(leftEdgeDays, 0);
+    const clampedRight = Math.min(rightEdgeDays, numDays);
+    const widthDays = clampedRight - clampedLeft;
+
+    if (widthDays <= 0) {
+      return { left: 0, width: dayWidth / 2 };
+    }
 
     return {
-      left: offsetDays * dayWidth + 2,
-      width: Math.max(spanDays * dayWidth - 4, dayWidth / 2),
+      left: clampedLeft * dayWidth + 2,
+      width: Math.max(widthDays * dayWidth - 4, dayWidth / 4),
     };
   }
 
@@ -163,7 +175,11 @@ export function BookingCalendar() {
   }
 
   function openNewBooking(roomId: string, checkIn: Date, selectedEnd: Date) {
-    const checkOut = addDays(selectedEnd, 1);
+    // CheckOutDate in system is exclusive (numNights = differenceInDays(checkOut, checkIn)).
+    // However we render bookings in the calendar as spanning into the checkOut day for clarity,
+    // so we keep checkOut = selectedEnd here (e.g. drag 29 -> 30 => check-in 29, check-out 30).
+    const checkOut =
+      selectedEnd.getTime() <= checkIn.getTime() ? addDays(checkIn, 1) : selectedEnd;
     router.push(
       `/bookings/new?roomId=${roomId}&checkIn=${format(checkIn, "yyyy-MM-dd")}&checkOut=${format(checkOut, "yyyy-MM-dd")}`
     );
@@ -191,12 +207,39 @@ export function BookingCalendar() {
     openNewBooking(selection.roomId, start, end);
   }
 
-  function handleCellMouseUp(roomId: string) {
+  function handleCellMouseUp(roomId: string, endDay: Date) {
     setDragSelection((prev) => {
       if (!prev || !prev.dragging || prev.roomId !== roomId) return prev;
-      finalizeSelection(prev);
+      // Use the cell you released on, not the last mouseenter,
+      // so drag-select feels predictable even when the cursor jumps quickly.
+      finalizeSelection({ ...prev, end: endDay });
       return null;
     });
+  }
+
+  function getSelectionGeometry(start: Date, end: Date) {
+    const { start: s, end: e } = normalizeRange(start, end);
+
+    const evStart = startOfDay(s);
+    const evEnd = startOfDay(e);
+
+    // - start at nửa sau của check-in ngày
+    // - end at hết sáng của check-out ngày
+    const leftEdgeDays = differenceInDays(evStart, startDate) + 0.5;
+    const rightEdgeDays = differenceInDays(evEnd, startDate) + 0.5;
+
+    const clampedLeft = Math.max(leftEdgeDays, 0);
+    const clampedRight = Math.min(rightEdgeDays, numDays);
+    const widthDays = clampedRight - clampedLeft;
+
+    if (widthDays <= 0) {
+      return { left: 0, width: dayWidth / 2 };
+    }
+
+    return {
+      left: clampedLeft * dayWidth + 2,
+      width: Math.max(widthDays * dayWidth - 4, dayWidth / 4),
+    };
   }
 
   useEffect(() => {
@@ -341,11 +384,13 @@ export function BookingCalendar() {
                   <div
                     key={day.toISOString()}
                     className={cn(
-                      "flex flex-col items-center justify-center border-r text-xs font-medium flex-none",
+                      "relative flex flex-col items-center justify-center border-r text-xs font-medium flex-none",
                       isToday(day) && "bg-primary/5"
                     )}
                     style={{ width: dayWidth }}
                   >
+                    {/* Divider: sáng / chiều (không ghi chữ) */}
+                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border/30 pointer-events-none" />
                     <span className={cn(
                       "text-[10px] uppercase text-muted-foreground",
                       isToday(day) && "text-primary"
@@ -383,11 +428,9 @@ export function BookingCalendar() {
                       <div
                         key={day.toISOString()}
                         className={cn(
-                          "flex-none border-r cursor-pointer transition-colors hover:bg-primary/5",
+                          "relative flex-none border-r cursor-pointer transition-colors hover:bg-primary/5",
                           isToday(day) && "bg-primary/5",
-                          normalizedDrag &&
-                            isWithinInterval(day, normalizedDrag) &&
-                            "bg-primary/20"
+                      normalizedDrag && isWithinInterval(day, normalizedDrag) && "bg-primary/10"
                         )}
                         style={{ width: dayWidth, height: ROW_HEIGHT }}
                         onMouseDown={(e) => {
@@ -396,16 +439,39 @@ export function BookingCalendar() {
                           handleCellMouseDown(room, day);
                         }}
                         onMouseEnter={() => handleCellMouseEnter(room.id, day)}
-                        onMouseUp={() => handleCellMouseUp(room.id)}
+                    onMouseUp={() => handleCellMouseUp(room.id, day)}
                         title={
                           dragSelection?.dragging && dragSelection.roomId === room.id
                             ? `Kéo để chọn khoảng ngày cho phòng ${room.roomNumber}`
                             : `Tạo booking: Phòng ${room.roomNumber}, ${format(day, "dd/MM/yyyy")}`
                         }
-                      />
+                      >
+                        {/* Divider: sáng / chiều (không ghi chữ) */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-border/20 pointer-events-none" />
+                      </div>
                     ))}
 
                     {/* Booking bars — absolutely positioned over the day cells */}
+                {dragSelection?.dragging && dragSelection.roomId === room.id && (
+                  (() => {
+                    const { left, width } = getSelectionGeometry(dragSelection.start, dragSelection.end);
+                    return (
+                      <div
+                        className={cn(
+                          "absolute top-2 bottom-2 rounded-md border cursor-grab select-none",
+                          "flex items-center px-2 gap-1 overflow-hidden",
+                          "bg-primary/20 border-primary/30",
+                          "pointer-events-none"
+                        )}
+                        style={{ left, width }}
+                      >
+                        <span className="text-[11px] font-semibold truncate leading-none text-primary">
+                          Kéo để chọn
+                        </span>
+                      </div>
+                    );
+                  })()
+                )}
                     {roomEvents.map((event) => {
                       const { left, width } = getBarGeometry(event);
                       const colors = STATUS_COLORS[event.status];
