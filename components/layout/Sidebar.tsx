@@ -15,7 +15,9 @@ import {
   ShoppingBag,
   PlusCircle,
   Building2,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -32,7 +34,8 @@ const mainNav = [
 ];
 
 const settingsNav = [
-  { href: "/onboarding",     label: "Thiết lập khách sạn", icon: Building2 },
+  { href: "/settings/hotel", label: "Thông tin khách sạn", icon: Building2 },
+  { href: "/onboarding",     label: "Thiết lập phòng",    icon: Settings },
   // { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
 ];
 
@@ -49,7 +52,7 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <h2 className="mb-3 px-4 text-lg font-semibold tracking-tight">
-            Tiny HMS
+            Quản lý khách sạn
           </h2>
 
           {/* ── New Booking CTA ── */}
@@ -97,6 +100,15 @@ export function Sidebar({ className }: SidebarProps) {
                 {label}
               </Button>
             ))}
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 mt-4"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Đăng xuất
+            </Button>
           </div>
         </div>
       </div>

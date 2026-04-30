@@ -113,7 +113,7 @@ export default function HotelSetupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomNumber: rNumber,
-          roomTypeId: rTypeId,
+          roomTypeId: rTypeId, 
         }),
       });
       const data = await res.json();
@@ -253,13 +253,14 @@ export default function HotelSetupPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={(setRTypeId) => (setRTypeId ?? '')} required>
+                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
+                       
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn loại phòng..." />
                       </SelectTrigger>
                       <SelectContent>
                         {roomTypes.map(rt => (
-                          <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                          <SelectItem key={rt.id} value={rt.id.toString()}>{rt.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

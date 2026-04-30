@@ -15,7 +15,13 @@ import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./Sidebar";
 
-export function Header() {
+// 1. Khai báo kiểu dữ liệu cho props
+interface HeaderProps {
+  hotelName: string;
+}
+
+// 2. Nhận prop hotelName
+export function Header({ hotelName }: HeaderProps) {
   const { data: session } = useSession();
 
   return (
@@ -34,8 +40,9 @@ export function Header() {
               <Sidebar />
             </SheetContent>
           </Sheet>
+          {/* 3. Hiển thị tên động từ DB */}
           <div className="hidden md:block font-bold ml-4">
-            Khách sạn Hoa Mai
+            {hotelName}
           </div>
         </div>
 

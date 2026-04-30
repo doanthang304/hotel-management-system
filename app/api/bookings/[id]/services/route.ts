@@ -12,6 +12,7 @@ const AddBookingServiceSchema = z.object({
   notes: z.string().optional(),
 });
 
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -110,6 +111,11 @@ export async function POST(
       const totalAmount = subtotalRoom + subtotalServices - discountAmount;
       const amountDue = Math.max(0, totalAmount - depositApplied - paidAmount);
 
+      let newStatus = "OPEN";
+      if (amountDue <= 0) {
+        newStatus = "SETTLED";
+      }
+
       const updatedBill = bill
         ? await tx.bill.update({
             where: { id: bill.id },
@@ -118,6 +124,7 @@ export async function POST(
               subtotalServices,
               totalAmount,
               amountDue,
+              status: newStatus as any, 
             },
           })
         : await tx.bill.create({

@@ -1,35 +1,37 @@
 "use client";
-
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { 
-  ArrowLeft, 
-  Printer, 
-  Receipt,
-  CreditCard,
-  Plus
-} from "lucide-react";
+import { ArrowLeft, Printer, Receipt,CreditCard,Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,DialogClose} from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export default function BillDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
   const [bill, setBill] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState("Tiền mặt");
+  
+  // Set giá trị mặc định khi mở Dialog
+  useEffect(() => {
+  if (bill && showConfirmPayment) {
+    setPayAmount(Number(bill.amountDue));
+  }
+  }, [bill, showConfirmPayment]);
 
   const fetchBill = async () => {
     try {
@@ -41,6 +43,31 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
       toast.error(error.message || "Không thể tải chi tiết hóa đơn");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (payAmount <= 0 && bill.amountDue > 0) {
+      toast.error("Vui lòng nhập số tiền hợp lệ");
+      return;
+    }
+    setPaymentLoading(true);
+    try {
+      const res = await fetch(`/api/bills/${id}/pay`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: payAmount, method: payMethod })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Thanh toán thành công!");
+      setShowConfirmPayment(false);
+      fetchBill(); // Refresh data
+    } catch (error: any) {
+      toast.error(error.message || "Lỗi khi xử lý thanh toán");
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -59,17 +86,42 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
             <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
           </Button>
           <h2 className="text-3xl font-bold tracking-tight">Chi tiết Hóa đơn</h2>
-          <Badge variant="outline" className={bill.status === "SETTLED" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}>
-            {bill.status}
+          <Badge 
+            variant="outline" 
+            className={Number(bill.amountDue) <= 0 ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}
+          >
+            {Number(bill.amountDue) <= 0 ? "Đã thanh toán" : "Chưa thanh toán hết"}
           </Badge>
         </div>
         <div className="flex space-x-2">
           <Button variant="outline">
             <Printer className="h-4 w-4 mr-2" /> In hóa đơn
           </Button>
-          <Button disabled={bill.status === "SETTLED"}>
-            <CreditCard className="h-4 w-4 mr-2" /> Thanh toán
-          </Button>
+          
+          <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
+            <DialogTrigger render={
+              <Button disabled={bill.status === "SETTLED"}>
+                <CreditCard className="h-4 w-4 mr-2" /> Thanh toán
+              </Button>
+            } />
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Xác nhận thanh toán</DialogTitle>
+                <DialogDescription>
+                  Hóa đơn này sẽ được đánh dấu là đã thanh toán toàn bộ. Bạn đã nhận đủ số tiền <strong>{formatVND(bill.amountDue)}</strong> từ khách hàng chưa?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <DialogClose render={<Button variant="outline" disabled={paymentLoading} />}>
+                  Hủy
+                </DialogClose>
+                <Button onClick={handleConfirmPayment} disabled={paymentLoading}>
+                  {paymentLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Xác nhận đã thu tiền
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -140,16 +192,16 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
                   <span>Tổng cộng:</span>
                   <span className="text-primary">{formatVND(bill.totalAmount)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-green-600 font-medium">
+                <div className="flex justify-between text-sm font-medium">
                   <span>Đã đặt cọc:</span>
                   <span>-{formatVND(bill.depositApplied)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-green-600 font-medium">
+                <div className="flex justify-between text-sm font-medium">
                   <span>Đã thanh toán:</span>
                   <span>-{formatVND(bill.payments?.reduce((acc: number, p: any) => acc + Number(p.amount), 0) || 0)}</span>
                 </div>
                 <Separator />
-                <div className="flex justify-between font-bold text-xl text-red-600">
+                <div className="flex justify-between font-bold text-xl">
                   <span>Còn lại:</span>
                   <span>{formatVND(bill.amountDue)}</span>
                 </div>
