@@ -10,6 +10,10 @@
 !.yarn/releases
 !.yarn/versions
 
+repomix-output.xml
+tiny_hms_ide_prompt.md
+AGENTS.md 
+CLAUDE.md
 # testing
 /coverage
 
@@ -43,5 +47,4 @@ next-env.d.ts
 
 /app/generated/prisma
 
-.xml
-tiny_hms_ide_prompt.md
+

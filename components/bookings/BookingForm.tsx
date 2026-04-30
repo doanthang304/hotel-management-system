@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, differenceInDays } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { cn, formatVND } from "@/lib/utils";
+import { cn, formatVND, formatInputNumber, parseInputNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -31,7 +31,7 @@ const bookingFormSchema = z.object({
   guestFullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
   guestPhone: z.string().optional(),
   guestIdNumber: z.string().optional(),
-  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]),
+  guestIdType: z.enum(["CCCD", "PASSPORT", "OTHER"]),
   guestNationality: z.string(),
   checkInDate: z.instanceof(Date, { message: "Vui lòng chọn ngày nhận phòng" }),
   checkOutDate: z.instanceof(Date, { message: "Vui lòng chọn ngày trả phòng" }),
@@ -286,7 +286,16 @@ export function BookingForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Số điện thoại</FormLabel>
-                      <FormControl><Input placeholder="090..." {...field} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          placeholder="090..." 
+                          {...field} 
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            field.onChange(val);
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -302,7 +311,6 @@ export function BookingForm() {
                         <SelectContent>
                           <SelectItem value="CCCD">CCCD</SelectItem>
                           <SelectItem value="PASSPORT">Passport</SelectItem>
-                          <SelectItem value="DRIVER_LICENSE">GPLX</SelectItem>
                           <SelectItem value="OTHER">Khác</SelectItem>
                         </SelectContent>
                       </Select>
@@ -315,7 +323,21 @@ export function BookingForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Số giấy tờ</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          onChange={(e) => {
+                            const type = form.getValues("guestIdType");
+                            let val = e.target.value;
+                            if (type === "CCCD") {
+                              val = val.replace(/\D/g, "");
+                            } else if (type === "PASSPORT") {
+                              val = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                            }
+                            field.onChange(val);
+                          }}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
@@ -413,7 +435,17 @@ export function BookingForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Giá mỗi đêm (VND)</FormLabel>
-                      <FormControl><Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          placeholder="0" 
+                          {...field} 
+                          value={formatInputNumber(field.value)}
+                          onChange={(e) => {
+                            const numericValue = parseInputNumber(e.target.value);
+                            field.onChange(numericValue);
+                          }}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
@@ -482,7 +514,17 @@ export function BookingForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tiền đặt cọc (VND)</FormLabel>
-                    <FormControl><Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} /></FormControl>
+                    <FormControl>
+                      <Input 
+                        placeholder="0" 
+                        {...field} 
+                        value={formatInputNumber(field.value)}
+                        onChange={(e) => {
+                          const numericValue = parseInputNumber(e.target.value);
+                          field.onChange(numericValue);
+                        }}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

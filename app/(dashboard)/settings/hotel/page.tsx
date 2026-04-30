@@ -1,27 +1,35 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Save, ArrowLeft, Building2 } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Building2, KeyRound, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 export default function HotelSettingsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+  const [changingPassword, setChangingPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     phone: "",
-    email: "",
     currency: "VND",
     timezone: "Asia/Ho_Chi_Minh",
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -37,7 +45,6 @@ export default function HotelSettingsPage() {
           name: json.data.name || "",
           address: json.data.address || "",
           phone: json.data.phone || "",
-          email: json.data.email || "",
           currency: json.data.currency || "VND",
           timezone: json.data.timezone || "Asia/Ho_Chi_Minh",
         });
@@ -75,6 +82,41 @@ export default function HotelSettingsPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast.error("Mật khẩu mới phải có ít nhất 6 ký tự");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success("Đổi mật khẩu thành công");
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      } else {
+        toast.error(json.error || "Đổi mật khẩu thất bại");
+      }
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast.error("Có lỗi xảy ra");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 min-h-[400px]">
@@ -97,7 +139,8 @@ export default function HotelSettingsPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-6">
+        {/* ── Hotel Info Card ── */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -143,14 +186,19 @@ export default function HotelSettingsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email liên hệ</Label>
+                    <Label htmlFor="userEmail" className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5" />
+                      Email tài khoản
+                    </Label>
                     <Input
-                      id="email"
+                      id="userEmail"
                       type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="VD: contact@hotel.com"
+                      value={session?.user?.email ?? ""}
+                      readOnly
+                      disabled
+                      className="bg-muted/50 cursor-not-allowed"
                     />
+                    <p className="text-xs text-muted-foreground">Email đăng nhập của tài khoản, không thể thay đổi.</p>
                   </div>
                 </div>
 
@@ -199,6 +247,74 @@ export default function HotelSettingsPage() {
                     <>
                       <Save className="mr-2 h-4 w-4" />
                       Lưu thay đổi
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* ── Change Password Card ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Đổi mật khẩu
+            </CardTitle>
+            <CardDescription>
+              Để bảo mật tài khoản, hãy sử dụng mật khẩu mạnh và không chia sẻ cho người khác.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  placeholder="Nhập mật khẩu hiện tại"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="newPassword">Mật khẩu mới</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    placeholder="Tối thiểu 6 ký tự"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Nhập lại mật khẩu mới"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button type="submit" disabled={changingPassword} variant="outline" className="min-w-[140px] min-h-[44px]">
+                  {changingPassword ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      Đổi mật khẩu
                     </>
                   )}
                 </Button>

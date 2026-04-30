@@ -60,3 +60,22 @@ export async function generateBillNumber(count: number): Promise<string> {
   const dateStr = format(new Date(), "yyyyMMdd");
   return `BILL-${dateStr}-${String(count + 1).padStart(3, "0")}`;
 }
+
+/**
+ * Format input số: 2000000 -> "2.000.000"
+ */
+export function formatInputNumber(val: number | string | null | undefined): string {
+  if (val === null || val === undefined || val === "") return "";
+  const numStr = typeof val === "string" ? val.replace(/\D/g, "") : val.toString();
+  if (!numStr) return "";
+  const num = parseInt(numStr, 10);
+  return new Intl.NumberFormat("vi-VN").format(num);
+}
+
+/**
+ * Parse input formatted: "2.000.000" -> 2000000
+ */
+export function parseInputNumber(val: string | null | undefined): number {
+  if (!val) return 0;
+  return parseInt(val.replace(/\./g, "").replace(/,/g, ""), 10) || 0;
+}
