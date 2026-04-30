@@ -15,7 +15,7 @@ const BookingCreateSchema = z.object({
   guestIdNumber: z.string().optional(),
   guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]).optional(),
   guestNationality: z.string().optional(),
-  guestIsVip: z.boolean().optional(),
+
   // Booking fields
   checkInDate: z.string(),
   checkOutDate: z.string(),
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           idNumber: data.guestIdNumber,
           idType: data.guestIdType || "CCCD",
           nationality: data.guestNationality || "Việt Nam",
-          isVip: data.guestIsVip || false,
+
         },
       });
       guestId = guest.id;

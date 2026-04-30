@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 
 const RegisterSchema = z.object({
   hotelName: z.string().min(2, "Tên khách sạn tối thiểu 2 ký tự"),
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Tạo hotel + owner trong transaction
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const hotel = await tx.hotel.create({
         data: {
           name: hotelName,
