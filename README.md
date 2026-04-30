@@ -25,6 +25,11 @@ Dự án có các tính năng cốt lõi sau:
 
 ---
 
+#Còn phát triển:
+* **Tính năng thêm dịch vụ
+* **Báo cáo doanh thu theo tháng/quý/năm
+* **Tích hợp AI tự động thêm booking bằng cách paste nội dung mail booking của khách hàng
+
 ## Cài đặt và Chạy thử
 
 Clone my repo:
