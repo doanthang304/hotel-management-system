@@ -75,33 +75,33 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
     fetchBill();
   }, [id]);
 
-  if (loading) return <div className="p-8 text-center">Đang tải...</div>;
-  if (!bill) return <div className="p-8 text-center">Không tìm thấy hóa đơn.</div>;
+  if (loading) return <div className="p-8 text-center text-muted-foreground">Đang tải...</div>;
+  if (!bill) return <div className="p-8 text-center text-muted-foreground">Không tìm thấy hóa đơn.</div>;
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" onClick={() => router.back()}>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="ghost" onClick={() => router.back()} className="min-h-[44px]">
             <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Chi tiết Hóa đơn</h2>
-          <Badge 
-            variant="outline" 
-            className={Number(bill.amountDue) <= 0 ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}
+          <h2 className="text-2xl font-bold tracking-tight">Chi tiết Hóa đơn</h2>
+          <Badge
+            variant="outline"
+            className={Number(bill.amountDue) <= 0 ? "status-settled" : "status-open"}
           >
             {Number(bill.amountDue) <= 0 ? "Đã thanh toán" : "Chưa thanh toán hết"}
           </Badge>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
+        <div className="flex gap-2">
+          <Button variant="outline" className="min-h-[44px]">
             <Printer className="h-4 w-4 mr-2" /> In hóa đơn
           </Button>
           
           <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
             <DialogTrigger render={
-              <Button disabled={bill.status === "SETTLED"}>
-                <CreditCard className="h-4 w-4 mr-2" /> Thanh toán
+              <Button disabled={bill.status === "SETTLED"} className="min-h-[44px]">
+                <CreditCard className="h-4 w-4 mr-2" /> Thu tiền
               </Button>
             } />
             <DialogContent className="sm:max-w-[425px]">
@@ -140,39 +140,67 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mô tả</TableHead>
-                    <TableHead className="text-right">Số lượng</TableHead>
-                    <TableHead className="text-right">Đơn giá</TableHead>
-                    <TableHead className="text-right">Thành tiền</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>
-                      Tiền phòng ({bill.booking.room.roomNumber})
+              {/* Desktop: Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mô tả</TableHead>
+                      <TableHead className="text-right">Số lượng</TableHead>
+                      <TableHead className="text-right">Đơn giá</TableHead>
+                      <TableHead className="text-right">Thành tiền</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>
+                        Tiền phòng ({bill.booking.room.roomNumber})
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(bill.booking.checkInDate), "dd/MM")} - {format(new Date(bill.booking.checkOutDate), "dd/MM")}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right">{bill.booking.numNights}</TableCell>
+                      <TableCell className="text-right">{formatVND(bill.booking.roomRate)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatVND(bill.subtotalRoom)}</TableCell>
+                    </TableRow>
+
+                    {/* Dịch vụ */}
+                    {bill.booking.bookingServices?.map((bs: any) => (
+                      <TableRow key={bs.id}>
+                        <TableCell>{bs.serviceName}</TableCell>
+                        <TableCell className="text-right">{Number(bs.quantity)}</TableCell>
+                        <TableCell className="text-right">{formatVND(Number(bs.unitPrice))}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatVND(Number(bs.subtotal))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Card list */}
+              <div className="md:hidden space-y-2">
+                <div className="rounded-lg border p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-sm">Tiền phòng ({bill.booking.room.roomNumber})</p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(bill.booking.checkInDate), "dd/MM")} - {format(new Date(bill.booking.checkOutDate), "dd/MM")}
                       </p>
-                    </TableCell>
-                    <TableCell className="text-right">{bill.booking.numNights}</TableCell>
-                    <TableCell className="text-right">{formatVND(bill.booking.roomRate)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatVND(bill.subtotalRoom)}</TableCell>
-                  </TableRow>
-                  
-                  {/* Dịch vụ */}
-                  {bill.booking.bookingServices?.map((bs: any) => (
-                    <TableRow key={bs.id}>
-                      <TableCell>{bs.serviceName}</TableCell>
-                      <TableCell className="text-right">{Number(bs.quantity)}</TableCell>
-                      <TableCell className="text-right">{formatVND(Number(bs.unitPrice))}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatVND(Number(bs.subtotal))}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    </div>
+                    <p className="font-semibold text-sm">{formatVND(bill.subtotalRoom)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{bill.booking.numNights} x {formatVND(bill.booking.roomRate)}</p>
+                </div>
+                {bill.booking.bookingServices?.map((bs: any) => (
+                  <div key={bs.id} className="rounded-lg border p-3">
+                    <div className="flex justify-between items-start">
+                      <p className="font-medium text-sm">{bs.serviceName}</p>
+                      <p className="font-semibold text-sm">{formatVND(Number(bs.subtotal))}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{Number(bs.quantity)} x {formatVND(Number(bs.unitPrice))}</p>
+                  </div>
+                ))}
+              </div>
 
               <div className="mt-6 space-y-2 max-w-xs ml-auto">
                 <div className="flex justify-between text-sm">
@@ -203,7 +231,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
                 <Separator />
                 <div className="flex justify-between font-bold text-xl">
                   <span>Còn lại:</span>
-                  <span>{formatVND(bill.amountDue)}</span>
+                  <span className={Number(bill.amountDue) > 0 ? "text-red-600" : "text-green-600"}>{formatVND(bill.amountDue)}</span>
                 </div>
               </div>
             </CardContent>

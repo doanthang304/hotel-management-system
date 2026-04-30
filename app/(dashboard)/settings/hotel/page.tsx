@@ -84,15 +84,15 @@ export default function HotelSettingsPage() {
   }
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} className="min-h-[44px] min-w-[44px]">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Thông tin khách sạn</h2>
-            <p className="text-muted-foreground">Quản lý thông tin hồ sơ và cấu hình chung của khách sạn.</p>
+            <h2 className="text-2xl font-bold tracking-tight">Thông tin khách sạn</h2>
+            <p className="text-sm text-muted-foreground">Quản lý thông tin hồ sơ và cấu hình chung của khách sạn.</p>
           </div>
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function HotelSettingsPage() {
                     <Label htmlFor="currency">Tiền tệ</Label>
                     <Select
                       value={formData.currency}
-                      onValueChange={(val) => setFormData({ ...formData, currency: val })}
+                      onValueChange={(val) => setFormData({ ...formData, currency: val ?? "VND" })}
                     >
                       <SelectTrigger id="currency">
                         <SelectValue placeholder="Chọn tiền tệ" />
@@ -174,7 +174,7 @@ export default function HotelSettingsPage() {
                     <Label htmlFor="timezone">Múi giờ</Label>
                     <Select
                       value={formData.timezone}
-                      onValueChange={(val) => setFormData({ ...formData, timezone: val })}
+                      onValueChange={(val) => setFormData({ ...formData, timezone: val ?? "Asia/Ho_Chi_Minh" })}
                     >
                       <SelectTrigger id="timezone">
                         <SelectValue placeholder="Chọn múi giờ" />
@@ -189,7 +189,7 @@ export default function HotelSettingsPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={saving} className="min-w-[120px]">
+                <Button type="submit" disabled={saving} className="min-w-[120px] min-h-[44px]">
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

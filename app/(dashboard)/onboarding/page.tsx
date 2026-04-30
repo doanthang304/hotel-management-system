@@ -130,18 +130,18 @@ export default function HotelSetupPage() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} className="min-h-[44px] min-w-[44px]">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Thiết lập khách sạn</h2>
-            <p className="text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
+            <h2 className="text-2xl font-bold tracking-tight">Thiết lập khách sạn</h2>
+            <p className="text-sm text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
           </div>
         </div>
-        <Button onClick={() => router.push("/dashboard")}>
+        <Button onClick={() => router.push("/dashboard")} className="min-h-[44px] shrink-0">
           Về Dashboard
         </Button>
       </div>

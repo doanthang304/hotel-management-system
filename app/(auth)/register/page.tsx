@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Hotel } from "lucide-react";
 
 const registerSchema = z.object({
   hotelName: z.string().min(2, "Tên khách sạn tối thiểu 2 ký tự"),
@@ -96,7 +96,12 @@ export default function RegisterPage() {
 
   return (
     <Card className="w-full max-w-lg mx-auto">
-      <CardHeader className="space-y-1 text-center">
+      <CardHeader className="space-y-3 text-center pb-4">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-primary/10 p-3">
+            <Hotel className="h-6 w-6 text-primary" />
+          </div>
+        </div>
         <CardTitle className="text-2xl font-bold tracking-tight">
           Đăng ký sử dụng
         </CardTitle>
@@ -107,8 +112,8 @@ export default function RegisterPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Thông tin khách sạn</h3>
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">Thông tin khách sạn</h3>
               <FormField
                 control={form.control}
                 name="hotelName"
@@ -116,26 +121,13 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Tên khách sạn (*)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Khách sạn Hoa Mai" {...field} />
+                      <Input placeholder="VD: Khách sạn Biển Xanh" {...field} className="min-h-[44px]" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="hotelPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Số điện thoại</FormLabel>
-                      <FormControl>
-                        <Input placeholder="028..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="hotelAddress"
@@ -143,7 +135,20 @@ export default function RegisterPage() {
                     <FormItem>
                       <FormLabel>Địa chỉ</FormLabel>
                       <FormControl>
-                        <Input placeholder="123 Nguyễn Huệ..." {...field} />
+                        <Input placeholder="123 Đường ABC..." {...field} className="min-h-[44px]" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hotelPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0901234567" {...field} className="min-h-[44px]" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -152,16 +157,16 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t">
-              <h3 className="font-semibold text-sm">Thông tin chủ tài khoản</h3>
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">Thông tin tài khoản</h3>
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Họ và tên (*)</FormLabel>
+                    <FormLabel>Họ tên (*)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nguyễn Văn A" {...field} />
+                      <Input placeholder="Nguyễn Văn A" {...field} className="min-h-[44px]" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -172,9 +177,9 @@ export default function RegisterPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email đăng nhập (*)</FormLabel>
+                    <FormLabel>Email (*)</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="m@example.com" {...field} />
+                      <Input type="email" placeholder="m@example.com" {...field} className="min-h-[44px]" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -187,7 +192,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Mật khẩu (*)</FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <Input type="password" {...field} className="min-h-[44px]" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -196,7 +201,7 @@ export default function RegisterPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Đăng ký
             </Button>

@@ -16,6 +16,7 @@ import {
   PlusCircle,
   Building2,
   LogOut,
+  Hotel,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -48,16 +49,18 @@ export function Sidebar({ className }: SidebarProps) {
   }
 
   return (
-    <div className={cn("pb-12 border-r h-full", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <h2 className="mb-3 px-4 text-lg font-semibold tracking-tight">
-            Quản lý khách sạn
-          </h2>
+    <div className={cn("flex flex-col h-full border-r bg-background", className)}>
+      {/* Logo */}
+      <div className="flex items-center gap-2 px-4 h-16 border-b shrink-0">
+        <Hotel className="h-6 w-6 text-primary" />
+        <span className="font-semibold text-base tracking-tight">Quản lý khách sạn</span>
+      </div>
 
+      <div className="flex-1 overflow-y-auto py-4">
+        <div className="px-3 py-2">
           {/* ── New Booking CTA ── */}
           <Button
-            className="w-full justify-start gap-2 mb-3"
+            className="w-full justify-start gap-2 mb-3 min-h-[44px]"
             render={<Link href="/bookings/new" />}
             nativeButton={false}
           >
@@ -71,7 +74,10 @@ export function Sidebar({ className }: SidebarProps) {
               <Button
                 key={href}
                 variant={isActive(href) ? "secondary" : "ghost"}
-                className="w-full justify-start"
+                className={cn(
+                  "w-full justify-start min-h-[44px]",
+                  isActive(href) && "font-medium"
+                )}
                 render={<Link href={href} />}
                 nativeButton={false}
               >
@@ -83,7 +89,7 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
 
         {/* ── Settings section ── */}
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 mt-2">
           <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Cài đặt
           </h2>
@@ -92,7 +98,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Button
                 key={href}
                 variant={isActive(href) ? "secondary" : "ghost"}
-                className="w-full justify-start"
+                className="w-full justify-start min-h-[44px]"
                 render={<Link href={href} />}
                 nativeButton={false}
               >
@@ -103,7 +109,7 @@ export function Sidebar({ className }: SidebarProps) {
 
             <Button
               variant="ghost"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 mt-4"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 mt-4 min-h-[44px]"
               onClick={() => signOut({ callbackUrl: "/login" })}
             >
               <LogOut className="mr-2 h-4 w-4" />

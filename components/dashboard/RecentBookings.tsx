@@ -6,6 +6,7 @@ import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
 import { BookingStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
+import { ClipboardList } from "lucide-react";
 
 type BookingSummary = {
   id: string;
@@ -18,16 +19,16 @@ type BookingSummary = {
   roomRate: number;
 };
 
-const statusColors = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  CONFIRMED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  CHECKED_IN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  CHECKED_OUT: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  NO_SHOW: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+const statusClasses: Record<string, string> = {
+  PENDING: "status-pending",
+  CONFIRMED: "status-confirmed",
+  CHECKED_IN: "status-occupied",
+  CHECKED_OUT: "status-checked-out",
+  CANCELLED: "status-cancelled",
+  NO_SHOW: "status-no-show",
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   PENDING: "Chờ duyệt",
   CONFIRMED: "Đã xác nhận",
   CHECKED_IN: "Đang ở",
@@ -54,28 +55,35 @@ export function RecentBookings() {
     fetchBookings();
   }, []);
 
-  if (bookings.length === 0) return <div className="p-4 text-center text-muted-foreground">Chưa có booking nào.</div>;
+  if (bookings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+        <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+        <p className="text-sm">Chưa có booking nào.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {bookings.map((booking) => (
-        <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">{booking.guest.fullName}</span>
-              <Badge variant="secondary" className="text-xs">
+        <div key={booking.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm truncate">{booking.guest.fullName}</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0">
                 Phòng {booking.room.roomNumber}
               </Badge>
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {format(new Date(booking.checkInDate), "dd/MM", { locale: vi })} - {format(new Date(booking.checkOutDate), "dd/MM", { locale: vi })}
             </div>
           </div>
-          <div className="text-right">
-            <Badge className={statusColors[booking.status]}>
+          <div className="text-right shrink-0 ml-3">
+            <Badge variant="outline" className={statusClasses[booking.status]}>
               {statusLabels[booking.status]}
             </Badge>
-            <div className="text-sm font-medium mt-1">
+            <div className="text-xs font-medium mt-1 text-muted-foreground">
               {formatVND(booking.roomRate)}/đêm
             </div>
           </div>

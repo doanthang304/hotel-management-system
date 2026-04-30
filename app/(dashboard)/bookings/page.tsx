@@ -15,13 +15,15 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
   Eye,
   CheckCircle,
-  LogOut
+  LogOut,
+  Loader2,
+  ClipboardList,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -55,12 +57,12 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  PENDING: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20",
-  CONFIRMED: "bg-blue-500/10 text-blue-600 dark:text-blue-500 border-blue-500/20",
-  CHECKED_IN: "bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20",
-  CHECKED_OUT: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
-  CANCELLED: "bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20",
-  NO_SHOW: "bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20",
+  PENDING: "status-pending",
+  CONFIRMED: "status-confirmed",
+  CHECKED_IN: "status-occupied",
+  CHECKED_OUT: "status-checked-out",
+  CANCELLED: "status-cancelled",
+  NO_SHOW: "status-no-show",
 };
 
 export default function BookingsPage() {
@@ -116,29 +118,80 @@ export default function BookingsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý đặt phòng</h2>
-        <div className="flex items-center space-x-2">
-          <Button render={<Link href="/bookings/new" />}>
-            <Plus className="mr-2 h-4 w-4" /> Tạo booking
-          </Button>
-        </div>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">Quản lý đặt phòng</h2>
+        <Button render={<Link href="/bookings/new" />} className="min-h-[44px] shrink-0" nativeButton={false}>
+          <Plus className="mr-2 h-4 w-4" /> Tạo booking
+        </Button>
       </div>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Tìm theo mã, tên khách, số điện thoại..." 
-            className="pl-8"
+          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo mã, tên khách, số điện thoại..."
+            className="pl-8 min-h-[44px]"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-slate-900">
+      {/* ── Mobile: Card list ── */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : bookings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Không tìm thấy booking nào.</p>
+          </div>
+        ) : (
+          bookings.map((booking) => (
+            <div key={booking.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{booking.bookingCode}</span>
+                <Badge variant="outline" className={statusVariants[booking.status]}>
+                  {statusLabels[booking.status]}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{booking.guest.fullName}</span>
+                <span className="text-muted-foreground">Phòng {booking.room.roomNumber}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{format(new Date(booking.checkInDate), "dd/MM/yyyy")} → {format(new Date(booking.checkOutDate), "dd/MM/yyyy")}</span>
+                <span>{booking.numNights} đêm</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t">
+                <span className="font-semibold text-sm">{formatVND(booking.roomRate * booking.numNights)}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Xem
+                  </Button>
+                  {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
+                    <Button size="sm" className="min-h-[36px]" onClick={() => handleCheckIn(booking.id)}>
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" /> Check-in
+                    </Button>
+                  )}
+                  {booking.status === "CHECKED_IN" && (
+                    <Button size="sm" variant="outline" className="min-h-[36px] border-(--status-maintenance) text-(--status-maintenance)" onClick={() => handleCheckOut(booking.id)}>
+                      <LogOut className="h-3.5 w-3.5 mr-1" /> Check-out
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop: Table ── */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -193,22 +246,22 @@ export default function BookingsPage() {
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                      <DropdownMenuTrigger nativeButton={false} render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                        <DropdownMenuItem render={<Link href={`/bookings/${booking.id}`} />}>
+                        <DropdownMenuItem nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
                           <Eye className="mr-2 h-4 w-4" /> Chi tiết
                         </DropdownMenuItem>
                         {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                           <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Check-in
+                            <CheckCircle className="mr-2 h-4 w-4 text-(--status-available)" /> Check-in
                           </DropdownMenuItem>
                         )}
                         {booking.status === "CHECKED_IN" && (
                           <DropdownMenuItem onClick={() => handleCheckOut(booking.id)}>
-                            <LogOut className="mr-2 h-4 w-4 text-orange-500" /> Check-out
+                            <LogOut className="mr-2 h-4 w-4 text-(--status-maintenance)" /> Check-out
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>

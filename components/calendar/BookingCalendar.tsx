@@ -44,7 +44,7 @@ type GanttEvent = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROOM_COL_WIDTH = 120;   // px — fixed left column
-const ROW_HEIGHT = 52;        // px per room row
+const ROW_HEIGHT = 60;        // px per room row
 const HEADER_HEIGHT = 48;     // px
 
 const NUM_DAYS = 90;          // Tổng số ngày render (3 tháng)
@@ -231,11 +231,12 @@ export function BookingCalendar() {
   }
 
   function handleCellMouseUp(roomId: string, endDay: Date) {
-    setDragSelection((prev) => {
-      if (!prev || !prev.dragging || prev.roomId !== roomId) return prev;
-      finalizeSelection({ ...prev, end: endDay });
-      return null;
-    });
+    // Đọc state hiện tại từ closure thay vì dùng callback (prev) => {}
+    if (dragSelection && dragSelection.dragging && dragSelection.roomId === roomId) {
+      const finalSelection = { ...dragSelection, end: endDay };
+      setDragSelection(null); // Xóa state trước
+      finalizeSelection(finalSelection); // Gọi chuyển trang sau
+    }
   }
 
   function getSelectionGeometry(start: Date, end: Date) {
@@ -260,18 +261,21 @@ export function BookingCalendar() {
     };
   }
 
-  useEffect(() => {
-    if (!dragSelection?.dragging) return;
-    const onMouseUp = () => {
-      setDragSelection((prev) => {
-        if (!prev || !prev.dragging) return prev;
-        finalizeSelection(prev);
-        return null;
-      });
-    };
-    window.addEventListener("mouseup", onMouseUp);
-    return () => window.removeEventListener("mouseup", onMouseUp);
-  }, [dragSelection, router]);
+    useEffect(() => {
+      if (!dragSelection?.dragging) return;
+        
+      const onMouseUp = () => {
+          // Vì dragSelection nằm trong mảng dependency của useEffect, 
+          // ta có thể dùng luôn giá trị hiện tại của nó.
+        if (dragSelection && dragSelection.dragging) {
+          setDragSelection(null); // Xóa state trước
+          finalizeSelection(dragSelection); // Gọi chuyển trang sau
+        }
+      };
+        
+      window.addEventListener("mouseup", onMouseUp);
+      return () => window.removeEventListener("mouseup", onMouseUp);
+    }, [dragSelection, router]); // Chỗ này giữ nguyên dependency
 
   // ── Tooltip ────────────────────────────────────────────────────────────────
   function handleBarMouseEnter(e: React.MouseEvent, event: GanttEvent) {
@@ -348,18 +352,18 @@ export function BookingCalendar() {
               return (
                 <div
                   key={room.id}
-                  className="flex flex-col justify-center border-b px-3 py-1 gap-0.5"
+                  className="flex flex-col justify-center border-b px-3 gap-1 overflow-hidden"
                   style={{ height: ROW_HEIGHT }}
                 >
-                  <span className="font-semibold text-sm leading-tight">
+                  <span className="font-semibold text-sm leading-none">
                     P. {room.roomNumber}
                   </span>
-                  <span className="text-[10px] text-muted-foreground leading-tight truncate">
+                  <span className="text-[10px] text-muted-foreground leading-none truncate">
                     {room.roomTypeName}
                   </span>
                   <span
                     className={cn(
-                      "mt-0.5 inline-flex w-fit items-center rounded px-1 py-px text-[9px] font-medium leading-none",
+                      "inline-flex w-fit items-center rounded px-1.5 py-[3px] text-[9px] font-medium leading-none",
                       badge.cls
                     )}
                   >
@@ -369,6 +373,7 @@ export function BookingCalendar() {
               );
             })}
           </div>
+          
 
           {/* ── Scrollable timeline grid ── */}
           <div

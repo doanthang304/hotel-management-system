@@ -42,20 +42,20 @@ export function StatsCards() {
   }, []);
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
       {/* Đang sử dụng */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Đang sử dụng</CardTitle>
-          <BedDouble className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Đang sử dụng</CardTitle>
+          <BedDouble className="h-5 w-5 text-(--status-occupied)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tabular-nums">
               {stats?.occupiedRooms ?? 0}
-              <span className="text-base font-normal text-muted-foreground">
+              <span className="text-sm font-normal text-muted-foreground">
                 /{stats?.totalRooms ?? 0}
               </span>
             </div>
@@ -67,14 +67,14 @@ export function StatsCards() {
       {/* Phòng trống */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Phòng trống</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Phòng trống</CardTitle>
+          <CheckCircle className="h-5 w-5 text-(--status-available)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-available)">
               {stats?.availableRooms ?? 0}
             </div>
           )}
@@ -85,14 +85,14 @@ export function StatsCards() {
       {/* Check-in hôm nay */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Check-in hôm nay</CardTitle>
-          <CalendarCheck className="h-4 w-4 text-blue-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Check-in hôm nay</CardTitle>
+          <CalendarCheck className="h-5 w-5 text-(--status-confirmed)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-confirmed)">
               {stats?.checkInsToday ?? 0}
             </div>
           )}
@@ -103,14 +103,14 @@ export function StatsCards() {
       {/* Check-out hôm nay */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Check-out hôm nay</CardTitle>
-          <LogOut className="h-4 w-4 text-orange-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Check-out hôm nay</CardTitle>
+          <LogOut className="h-5 w-5 text-(--status-maintenance)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-maintenance)">
               {stats?.checkOutsToday ?? 0}
             </div>
           )}

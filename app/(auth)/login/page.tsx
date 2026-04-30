@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Hotel } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,8 +50,13 @@ export default function LoginPage() {
   };
 
   return (
-    <Card>
-      <CardHeader className="space-y-1 text-center">
+    <Card className="w-full max-w-sm">
+      <CardHeader className="space-y-3 text-center pb-4">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-primary/10 p-3">
+            <Hotel className="h-6 w-6 text-primary" />
+          </div>
+        </div>
         <CardTitle className="text-2xl font-bold tracking-tight">
           Đăng nhập Tiny HMS
         </CardTitle>
@@ -71,6 +76,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
+              className="min-h-[44px]"
             />
           </div>
           <div className="space-y-2">
@@ -90,11 +96,12 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
+              className="min-h-[44px]"
             />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Đăng nhập
           </Button>

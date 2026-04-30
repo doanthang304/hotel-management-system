@@ -144,6 +144,626 @@ types/index.ts
 <files>
 This section contains the contents of the repository's files.
 
+<file path="AGENTS.md">
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+</file>
+
+<file path="app/(auth)/layout.tsx">
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <div className="w-full max-w-lg">{children}</div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(auth)/login/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "sonner";
+import { Loader2, Hotel } from "lucide-react";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Đăng nhập thành công");
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch (error) {
+      toast.error("Đã có lỗi xảy ra");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-sm">
+      <CardHeader className="space-y-3 text-center pb-4">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-primary/10 p-3">
+            <Hotel className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+        <CardTitle className="text-2xl font-bold tracking-tight">
+          Đăng nhập Tiny HMS
+        </CardTitle>
+        <CardDescription>
+          Nhập email và mật khẩu của bạn để tiếp tục
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="m@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
+              className="min-h-[44px]"
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <Link
+                href="#"
+                className="text-sm text-primary hover:underline"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              className="min-h-[44px]"
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Đăng nhập
+          </Button>
+          <div className="text-sm text-center text-muted-foreground">
+            Chưa có tài khoản?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-primary hover:underline"
+            >
+              Đăng ký ngay
+            </Link>
+          </div>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}
+</file>
+
+<file path="app/(auth)/register/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { signIn } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "sonner";
+import { Loader2, Hotel } from "lucide-react";
+
+const registerSchema = z.object({
+  hotelName: z.string().min(2, "Tên khách sạn tối thiểu 2 ký tự"),
+  hotelAddress: z.string().optional(),
+  hotelPhone: z.string().optional(),
+  fullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
+  email: z.string().email("Email không hợp lệ"),
+  password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      hotelName: "",
+      hotelAddress: "",
+      hotelPhone: "",
+      fullName: "",
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: RegisterFormValues) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || "Đăng ký thất bại");
+        return;
+      }
+
+      toast.success("Đăng ký thành công! Đang đăng nhập...");
+
+      // Tự động login sau khi đăng ký thành công
+      const loginRes = await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      });
+
+      if (loginRes?.error) {
+        toast.error("Không thể đăng nhập tự động. Vui lòng đăng nhập thủ công.");
+        router.push("/login");
+      } else {
+        router.push("/onboarding");
+        router.refresh();
+      }
+    } catch (error) {
+      toast.error("Đã có lỗi xảy ra");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-lg mx-auto">
+      <CardHeader className="space-y-3 text-center pb-4">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-primary/10 p-3">
+            <Hotel className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+        <CardTitle className="text-2xl font-bold tracking-tight">
+          Đăng ký sử dụng
+        </CardTitle>
+        <CardDescription>
+          Tạo tài khoản quản lý khách sạn của bạn
+        </CardDescription>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">Thông tin khách sạn</h3>
+              <FormField
+                control={form.control}
+                name="hotelName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tên khách sạn (*)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="VD: Khách sạn Biển Xanh" {...field} className="min-h-[44px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="hotelAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Địa chỉ</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123 Đường ABC..." {...field} className="min-h-[44px]" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hotelPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0901234567" {...field} className="min-h-[44px]" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-muted-foreground">Thông tin tài khoản</h3>
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Họ tên (*)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nguyễn Văn A" {...field} className="min-h-[44px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (*)</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="m@example.com" {...field} className="min-h-[44px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mật khẩu (*)</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} className="min-h-[44px]" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Đăng ký
+            </Button>
+            <div className="text-sm text-center text-muted-foreground">
+              Đã có tài khoản?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-primary hover:underline"
+              >
+                Đăng nhập
+              </Link>
+            </div>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/bookings/new/page.tsx">
+import { BookingForm } from "@/components/bookings/BookingForm";
+
+export default function NewBookingPage() {
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Tạo đặt phòng mới</h2>
+      </div>
+      <div className="max-w-4xl border p-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm">
+        <BookingForm />
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/calendar/page.tsx">
+import { BookingCalendar } from "@/components/calendar/BookingCalendar";
+
+export default function CalendarPage() {
+  return (
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Lịch phòng</h2>
+      </div>
+      <BookingCalendar />
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/dashboard/page.tsx">
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
+import { StatsCards } from "@/components/dashboard/StatsCards";
+import { RecentBookings } from "@/components/dashboard/RecentBookings";
+
+export default function DashboardPage() {
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Tổng quan</h2>
+      </div>
+      
+      <StatsCards />
+
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-7">
+        <Card className="lg:col-span-5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Sơ đồ phòng hiện tại</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3">
+            <RoomStatusGrid />
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Giao dịch gần đây</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RecentBookings />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/reports/page.tsx">
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { RevenueChart } from "@/components/reports/RevenueChart";
+
+export default function ReportsPage() {
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Báo cáo & Thống kê</h2>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Doanh thu tháng này</CardTitle>
+            <CardDescription>Biểu đồ doanh thu theo từng ngày trong tháng hiện tại.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart />
+          </CardContent>
+        </Card>
+        
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Công suất phòng</CardTitle>
+            <CardDescription>Tỷ lệ sử dụng phòng trong 30 ngày qua.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center h-[350px]">
+            <p className="text-muted-foreground italic">Tính năng đang được phát triển...</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/services/page.tsx">
+"use client";
+
+import { useEffect, useState } from "react";
+import { formatVND } from "@/lib/utils";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Plus, Settings2, Wrench, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+type Service = {
+  id: string;
+  name: string;
+  unit: string;
+  unitPrice: number;
+  isActive: boolean;
+};
+
+export default function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchServices = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/services");
+      const json = await res.json();
+      setServices(json.data || []);
+    } catch (error) {
+      toast.error("Không thể tải danh sách dịch vụ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  return (
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">Danh mục dịch vụ</h2>
+        <Button disabled className="min-h-[44px] shrink-0">
+          <Plus className="mr-2 h-4 w-4" /> Thêm dịch vụ
+        </Button>
+      </div>
+
+      {/* Mobile: Card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : services.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Wrench className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Chưa có dịch vụ nào.</p>
+          </div>
+        ) : (
+          services.map((service) => (
+            <div key={service.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{service.name}</span>
+                {service.isActive ? (
+                  <Badge className="status-available">Đang kinh doanh</Badge>
+                ) : (
+                  <Badge variant="secondary">Ngừng kinh doanh</Badge>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{service.unit}</span>
+                <span className="font-semibold text-foreground">{formatVND(service.unitPrice)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tên dịch vụ</TableHead>
+              <TableHead>Đơn vị</TableHead>
+              <TableHead>Đơn giá</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead className="text-right w-[100px]">Thao tác</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Đang tải...
+                </TableCell>
+              </TableRow>
+            ) : services.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Chưa có dịch vụ nào.
+                </TableCell>
+              </TableRow>
+            ) : (
+              services.map((service) => (
+                <TableRow key={service.id}>
+                  <TableCell className="font-medium">{service.name}</TableCell>
+                  <TableCell>{service.unit}</TableCell>
+                  <TableCell className="font-semibold">{formatVND(service.unitPrice)}</TableCell>
+                  <TableCell>
+                    {service.isActive ? (
+                      <Badge className="status-available">Đang kinh doanh</Badge>
+                    ) : (
+                      <Badge variant="secondary">Ngừng kinh doanh</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="app/(dashboard)/settings/hotel/page.tsx">
 "use client";
 
@@ -231,15 +851,15 @@ export default function HotelSettingsPage() {
   }
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} className="min-h-[44px] min-w-[44px]">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Thông tin khách sạn</h2>
-            <p className="text-muted-foreground">Quản lý thông tin hồ sơ và cấu hình chung của khách sạn.</p>
+            <h2 className="text-2xl font-bold tracking-tight">Thông tin khách sạn</h2>
+            <p className="text-sm text-muted-foreground">Quản lý thông tin hồ sơ và cấu hình chung của khách sạn.</p>
           </div>
         </div>
       </div>
@@ -306,7 +926,7 @@ export default function HotelSettingsPage() {
                     <Label htmlFor="currency">Tiền tệ</Label>
                     <Select
                       value={formData.currency}
-                      onValueChange={(val) => setFormData({ ...formData, currency: val })}
+                      onValueChange={(val) => setFormData({ ...formData, currency: val ?? "VND" })}
                     >
                       <SelectTrigger id="currency">
                         <SelectValue placeholder="Chọn tiền tệ" />
@@ -321,7 +941,7 @@ export default function HotelSettingsPage() {
                     <Label htmlFor="timezone">Múi giờ</Label>
                     <Select
                       value={formData.timezone}
-                      onValueChange={(val) => setFormData({ ...formData, timezone: val })}
+                      onValueChange={(val) => setFormData({ ...formData, timezone: val ?? "Asia/Ho_Chi_Minh" })}
                     >
                       <SelectTrigger id="timezone">
                         <SelectValue placeholder="Chọn múi giờ" />
@@ -336,7 +956,7 @@ export default function HotelSettingsPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={saving} className="min-w-[120px]">
+                <Button type="submit" disabled={saving} className="min-w-[120px] min-h-[44px]">
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -353,1015 +973,6 @@ export default function HotelSettingsPage() {
             </form>
           </CardContent>
         </Card>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/api/bills/[id]/pay/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const body = await req.json().catch(() => ({})); // Nhận body từ UI
-
-  try {
-    const bill = await prisma.bill.findUnique({
-      where: { id: id, booking: { hotelId: session.user.hotelId } },
-      include: { payments: true }
-    });
-
-    if (!bill) return NextResponse.json({ error: "Không tìm thấy hóa đơn" }, { status: 404 });
-    if (bill.status === "SETTLED") return NextResponse.json({ error: "Hóa đơn đã thanh toán đủ" }, { status: 400 });
-
-    // Lấy số tiền Lễ tân nhập, nếu không nhập thì mặc định là thu hết số nợ
-    const amountToPay = body.amount !== undefined ? Number(body.amount) : Number(bill.amountDue);
-    const method = body.method || "Tiền mặt";
-
-    if (amountToPay > Number(bill.amountDue)) {
-      return NextResponse.json({ error: "Số tiền thu không được lớn hơn công nợ" }, { status: 400 });
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      let payment = null;
-      // Chỉ tạo record lịch sử nếu thực sự có thu tiền (> 0)
-      if (amountToPay > 0) {
-        payment = await tx.billPayment.create({
-          data: {
-            billId: bill.id,
-            recordedBy: session.user.id,
-            amount: amountToPay,
-            method: method,
-            notes: "Thanh toán hóa đơn",
-          }
-        });
-      }
-      const newAmountDue = Number(bill.amountDue) - amountToPay;
-
-      let newStatus = bill.status; // Mặc định giữ nguyên trạng thái cũ (OPEN)
-      if (newAmountDue <= 0) {
-        newStatus = "SETTLED";
-      }
-
-      const updatedBill = await tx.bill.update({
-        where: { id: bill.id },
-        data: {
-          status: newStatus as any,
-          amountDue: newAmountDue,
-          finalizedAt: newAmountDue <= 0 ? new Date() : bill.finalizedAt,
-          finalizedBy: newAmountDue <= 0 ? session.user.id : bill.finalizedBy,
-        }
-      });
-
-      return { payment, updatedBill };
-    });
-
-    return NextResponse.json({ data: result });
-  } catch (error) {
-    console.error("POST /api/bills/[id]/pay error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-</file>
-
-<file path="app/api/hotel/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    const hotel = await prisma.hotel.findUnique({
-      where: { id: session.user.hotelId },
-    });
-
-    if (!hotel) {
-      return NextResponse.json({ error: "Không tìm thấy thông tin khách sạn" }, { status: 404 });
-    }
-
-    return NextResponse.json({ data: hotel });
-  } catch (error) {
-    console.error("GET /api/hotel error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-
-export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    const body = await req.json();
-    const { name, address, phone, email, currency, timezone } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: "Tên khách sạn là bắt buộc" }, { status: 400 });
-    }
-
-    const updatedHotel = await prisma.hotel.update({
-      where: { id: session.user.hotelId },
-      data: {
-        name,
-        address,
-        phone,
-        email,
-        currency,
-        timezone,
-      },
-    });
-
-    return NextResponse.json({ data: updatedHotel });
-  } catch (error) {
-    console.error("PATCH /api/hotel error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-</file>
-
-<file path="AGENTS.md">
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
-</file>
-
-<file path="app/(auth)/layout.tsx">
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-      <div className="w-full max-w-md">{children}</div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(auth)/login/page.tsx">
-"use client";
-
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Đăng nhập thành công");
-        router.push("/dashboard");
-        router.refresh();
-      }
-    } catch (error) {
-      toast.error("Đã có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold tracking-tight">
-          Đăng nhập Tiny HMS
-        </CardTitle>
-        <CardDescription>
-          Nhập email và mật khẩu của bạn để tiếp tục
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="m@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Link
-                href="#"
-                className="text-sm text-primary hover:underline"
-              >
-                Quên mật khẩu?
-              </Link>
-            </div>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Đăng nhập
-          </Button>
-          <div className="text-sm text-center text-muted-foreground">
-            Chưa có tài khoản?{" "}
-            <Link
-              href="/register"
-              className="font-medium text-primary hover:underline"
-            >
-              Đăng ký ngay
-            </Link>
-          </div>
-        </CardFooter>
-      </form>
-    </Card>
-  );
-}
-</file>
-
-<file path="app/(auth)/register/page.tsx">
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { signIn } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-
-const registerSchema = z.object({
-  hotelName: z.string().min(2, "Tên khách sạn tối thiểu 2 ký tự"),
-  hotelAddress: z.string().optional(),
-  hotelPhone: z.string().optional(),
-  fullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
-  email: z.string().email("Email không hợp lệ"),
-  password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
-});
-
-type RegisterFormValues = z.infer<typeof registerSchema>;
-
-export default function RegisterPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-
-  const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      hotelName: "",
-      hotelAddress: "",
-      hotelPhone: "",
-      fullName: "",
-      email: "",
-      password: "",
-    },
-  });
-
-  const onSubmit = async (data: RegisterFormValues) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        toast.error(result.error || "Đăng ký thất bại");
-        return;
-      }
-
-      toast.success("Đăng ký thành công! Đang đăng nhập...");
-
-      // Tự động login sau khi đăng ký thành công
-      const loginRes = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      if (loginRes?.error) {
-        toast.error("Không thể đăng nhập tự động. Vui lòng đăng nhập thủ công.");
-        router.push("/login");
-      } else {
-        router.push("/onboarding");
-        router.refresh();
-      }
-    } catch (error) {
-      toast.error("Đã có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card className="w-full max-w-lg mx-auto">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold tracking-tight">
-          Đăng ký sử dụng
-        </CardTitle>
-        <CardDescription>
-          Tạo tài khoản quản lý khách sạn của bạn
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Thông tin khách sạn</h3>
-              <FormField
-                control={form.control}
-                name="hotelName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tên khách sạn (*)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Khách sạn Hoa Mai" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="hotelPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Số điện thoại</FormLabel>
-                      <FormControl>
-                        <Input placeholder="028..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="hotelAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Địa chỉ</FormLabel>
-                      <FormControl>
-                        <Input placeholder="123 Nguyễn Huệ..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t">
-              <h3 className="font-semibold text-sm">Thông tin chủ tài khoản</h3>
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Họ và tên (*)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nguyễn Văn A" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email đăng nhập (*)</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="m@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mật khẩu (*)</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Đăng ký
-            </Button>
-            <div className="text-sm text-center text-muted-foreground">
-              Đã có tài khoản?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-primary hover:underline"
-              >
-                Đăng nhập
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/bills/[id]/page.tsx">
-"use client";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { formatVND } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Receipt,CreditCard,Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,DialogClose} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-
-export default function BillDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
-  const { id } = use(params);
-  const [bill, setBill] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState("Tiền mặt");
-  
-  // Set giá trị mặc định khi mở Dialog
-  useEffect(() => {
-  if (bill && showConfirmPayment) {
-    setPayAmount(Number(bill.amountDue));
-  }
-  }, [bill, showConfirmPayment]);
-
-  const fetchBill = async () => {
-    try {
-      const res = await fetch(`/api/bills/${id}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      setBill(json.data);
-    } catch (error: any) {
-      toast.error(error.message || "Không thể tải chi tiết hóa đơn");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmPayment = async () => {
-    if (payAmount <= 0 && bill.amountDue > 0) {
-      toast.error("Vui lòng nhập số tiền hợp lệ");
-      return;
-    }
-    setPaymentLoading(true);
-    try {
-      const res = await fetch(`/api/bills/${id}/pay`, { 
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: payAmount, method: payMethod })
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      
-      toast.success("Thanh toán thành công!");
-      setShowConfirmPayment(false);
-      fetchBill(); // Refresh data
-    } catch (error: any) {
-      toast.error(error.message || "Lỗi khi xử lý thanh toán");
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBill();
-  }, [id]);
-
-  if (loading) return <div className="p-8 text-center">Đang tải...</div>;
-  if (!bill) return <div className="p-8 text-center">Không tìm thấy hóa đơn.</div>;
-
-  return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
-          </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Chi tiết Hóa đơn</h2>
-          <Badge 
-            variant="outline" 
-            className={Number(bill.amountDue) <= 0 ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}
-          >
-            {Number(bill.amountDue) <= 0 ? "Đã thanh toán" : "Chưa thanh toán hết"}
-          </Badge>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <Printer className="h-4 w-4 mr-2" /> In hóa đơn
-          </Button>
-          
-          <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
-            <DialogTrigger render={
-              <Button disabled={bill.status === "SETTLED"}>
-                <CreditCard className="h-4 w-4 mr-2" /> Thanh toán
-              </Button>
-            } />
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Xác nhận thanh toán</DialogTitle>
-                <DialogDescription>
-                  Hóa đơn này sẽ được đánh dấu là đã thanh toán toàn bộ. Bạn đã nhận đủ số tiền <strong>{formatVND(bill.amountDue)}</strong> từ khách hàng chưa?
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex gap-2">
-                <DialogClose render={<Button variant="outline" disabled={paymentLoading} />}>
-                  Hủy
-                </DialogClose>
-                <Button onClick={handleConfirmPayment} disabled={paymentLoading}>
-                  {paymentLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Xác nhận đã thu tiền
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Receipt className="h-5 w-5 mr-2 text-primary" />
-                  Hóa đơn #{bill.billNumber}
-                </div>
-                <span className="text-sm font-normal text-muted-foreground">
-                  Ngày tạo: {format(new Date(bill.createdAt), "dd/MM/yyyy HH:mm")}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mô tả</TableHead>
-                    <TableHead className="text-right">Số lượng</TableHead>
-                    <TableHead className="text-right">Đơn giá</TableHead>
-                    <TableHead className="text-right">Thành tiền</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>
-                      Tiền phòng ({bill.booking.room.roomNumber})
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(bill.booking.checkInDate), "dd/MM")} - {format(new Date(bill.booking.checkOutDate), "dd/MM")}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right">{bill.booking.numNights}</TableCell>
-                    <TableCell className="text-right">{formatVND(bill.booking.roomRate)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatVND(bill.subtotalRoom)}</TableCell>
-                  </TableRow>
-                  
-                  {/* Dịch vụ */}
-                  {bill.booking.bookingServices?.map((bs: any) => (
-                    <TableRow key={bs.id}>
-                      <TableCell>{bs.serviceName}</TableCell>
-                      <TableCell className="text-right">{Number(bs.quantity)}</TableCell>
-                      <TableCell className="text-right">{formatVND(Number(bs.unitPrice))}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatVND(Number(bs.subtotal))}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="mt-6 space-y-2 max-w-xs ml-auto">
-                <div className="flex justify-between text-sm">
-                  <span>Tạm tính phòng:</span>
-                  <span>{formatVND(bill.subtotalRoom)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Tạm tính dịch vụ:</span>
-                  <span>{formatVND(bill.subtotalServices)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Thuế/Phí:</span>
-                  <span>{formatVND(bill.taxAmount)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Tổng cộng:</span>
-                  <span className="text-primary">{formatVND(bill.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Đã đặt cọc:</span>
-                  <span>-{formatVND(bill.depositApplied)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Đã thanh toán:</span>
-                  <span>-{formatVND(bill.payments?.reduce((acc: number, p: any) => acc + Number(p.amount), 0) || 0)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-bold text-xl">
-                  <span>Còn lại:</span>
-                  <span>{formatVND(bill.amountDue)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Thông tin khách hàng</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm space-y-2">
-              <p className="font-bold">{bill.booking.guest.fullName}</p>
-              <p>{bill.booking.guest.phone}</p>
-              <Separator />
-              <p className="text-xs text-muted-foreground pt-2">Mã đặt phòng: {bill.booking.guest.bookingCode}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm">Lịch sử thanh toán</CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={bill.status === "SETTLED"}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {bill.payments?.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Chưa có giao dịch thanh toán.</p>
-              ) : (
-                <div className="space-y-3">
-                  {bill.payments?.map((p: any) => (
-                    <div key={p.id} className="flex justify-between items-center text-sm">
-                      <div>
-                        <p className="font-medium">{formatVND(p.amount)}</p>
-                        <p className="text-xs text-muted-foreground">{format(new Date(p.receivedAt), "dd/MM HH:mm")}</p>
-                      </div>
-                      <Badge variant="secondary" className="text-[10px]">{p.method}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/bookings/new/page.tsx">
-import { BookingForm } from "@/components/bookings/BookingForm";
-
-export default function NewBookingPage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Tạo đặt phòng mới</h2>
-      </div>
-      <div className="max-w-4xl border p-6 rounded-lg bg-white dark:bg-slate-900 shadow-sm">
-        <BookingForm />
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/calendar/page.tsx">
-import { BookingCalendar } from "@/components/calendar/BookingCalendar";
-
-export default function CalendarPage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Lịch phòng</h2>
-      </div>
-      <BookingCalendar />
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/dashboard/page.tsx">
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
-import { StatsCards } from "@/components/dashboard/StatsCards";
-import { RecentBookings } from "@/components/dashboard/RecentBookings";
-
-export default function DashboardPage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Tổng quan</h2>
-      </div>
-      
-      <StatsCards />
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 lg:col-span-5">
-          <CardHeader>
-            <CardTitle>Sơ đồ phòng hiện tại</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <RoomStatusGrid />
-          </CardContent>
-        </Card>
-        <Card className="col-span-4 md:col-span-2 lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Giao dịch gần đây</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecentBookings />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/layout.tsx">
-import { Header } from "@/components/layout/Header";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma"; // 1. Import prisma
-
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  // 2. Lấy thông tin khách sạn từ DB
-  const hotel = await prisma.hotel.findUnique({
-    where: { id: session.user.hotelId },
-    select: { name: true }, // Chỉ lấy cột name cho nhẹ
-  });
-
-  return (
-    <div className="flex min-h-screen flex-col">
-      {/* 3. Truyền tên xuống component Header */}
-      <Header hotelName={hotel?.name || "Tiny HMS"} />
-      
-      <div className="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
-        <aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 md:sticky md:block">
-          <Sidebar />
-        </aside>
-        <main className="flex w-full flex-col overflow-hidden py-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/reports/page.tsx">
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { RevenueChart } from "@/components/reports/RevenueChart";
-
-export default function ReportsPage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Báo cáo & Thống kê</h2>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Doanh thu tháng này</CardTitle>
-            <CardDescription>Biểu đồ doanh thu theo từng ngày trong tháng hiện tại.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RevenueChart />
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Công suất phòng</CardTitle>
-            <CardDescription>Tỷ lệ sử dụng phòng trong 30 ngày qua.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-[350px]">
-            <p className="text-muted-foreground italic">Tính năng đang được phát triển...</p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/services/page.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import { formatVND } from "@/lib/utils";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Plus, Settings2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-
-type Service = {
-  id: string;
-  name: string;
-  unit: string;
-  unitPrice: number;
-  isActive: boolean;
-};
-
-export default function ServicesPage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchServices = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/services");
-      const json = await res.json();
-      setServices(json.data || []);
-    } catch (error) {
-      toast.error("Không thể tải danh sách dịch vụ");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchServices();
-  }, []);
-
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Danh mục dịch vụ</h2>
-        <Button disabled>
-          <Plus className="mr-2 h-4 w-4" /> Thêm dịch vụ
-        </Button>
-      </div>
-
-      <div className="rounded-md border bg-white dark:bg-slate-900">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tên dịch vụ</TableHead>
-              <TableHead>Đơn vị</TableHead>
-              <TableHead>Đơn giá</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right w-[100px]">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  Đang tải...
-                </TableCell>
-              </TableRow>
-            ) : services.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  Chưa có dịch vụ nào.
-                </TableCell>
-              </TableRow>
-            ) : (
-              services.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell>{service.unit}</TableCell>
-                  <TableCell className="font-semibold">{formatVND(service.unitPrice)}</TableCell>
-                  <TableCell>
-                    {service.isActive ? (
-                      <Badge className="bg-green-500">Đang kinh doanh</Badge>
-                    ) : (
-                      <Badge variant="secondary">Ngừng kinh doanh</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
       </div>
     </div>
   );
@@ -1446,6 +1057,81 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Register error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+</file>
+
+<file path="app/api/bills/[id]/pay/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json().catch(() => ({})); // Nhận body từ UI
+
+  try {
+    const bill = await prisma.bill.findUnique({
+      where: { id: id, booking: { hotelId: session.user.hotelId } },
+      include: { payments: true }
+    });
+
+    if (!bill) return NextResponse.json({ error: "Không tìm thấy hóa đơn" }, { status: 404 });
+    if (bill.status === "SETTLED") return NextResponse.json({ error: "Hóa đơn đã thanh toán đủ" }, { status: 400 });
+
+    // Lấy số tiền Lễ tân nhập, nếu không nhập thì mặc định là thu hết số nợ
+    const amountToPay = body.amount !== undefined ? Number(body.amount) : Number(bill.amountDue);
+    const method = body.method || "Tiền mặt";
+
+    if (amountToPay > Number(bill.amountDue)) {
+      return NextResponse.json({ error: "Số tiền thu không được lớn hơn công nợ" }, { status: 400 });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      let payment = null;
+      // Chỉ tạo record lịch sử nếu thực sự có thu tiền (> 0)
+      if (amountToPay > 0) {
+        payment = await tx.billPayment.create({
+          data: {
+            billId: bill.id,
+            recordedBy: session.user.id,
+            amount: amountToPay,
+            method: method,
+            notes: "Thanh toán hóa đơn",
+          }
+        });
+      }
+      const newAmountDue = Number(bill.amountDue) - amountToPay;
+
+      let newStatus = bill.status; // Mặc định giữ nguyên trạng thái cũ (OPEN)
+      if (newAmountDue <= 0) {
+        newStatus = "SETTLED";
+      }
+
+      const updatedBill = await tx.bill.update({
+        where: { id: bill.id },
+        data: {
+          status: newStatus as any,
+          amountDue: newAmountDue,
+          finalizedAt: newAmountDue <= 0 ? new Date() : bill.finalizedAt,
+          finalizedBy: newAmountDue <= 0 ? session.user.id : bill.finalizedBy,
+        }
+      });
+
+      return { payment, updatedBill };
+    });
+
+    return NextResponse.json({ data: result });
+  } catch (error) {
+    console.error("POST /api/bills/[id]/pay error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -2026,6 +1712,64 @@ export async function GET(req: NextRequest) {
 }
 </file>
 
+<file path="app/api/hotel/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: session.user.hotelId },
+    });
+
+    if (!hotel) {
+      return NextResponse.json({ error: "Không tìm thấy thông tin khách sạn" }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: hotel });
+  } catch (error) {
+    console.error("GET /api/hotel error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const { name, address, phone, email, currency, timezone } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: "Tên khách sạn là bắt buộc" }, { status: 400 });
+    }
+
+    const updatedHotel = await prisma.hotel.update({
+      where: { id: session.user.hotelId },
+      data: {
+        name,
+        address,
+        phone,
+        email,
+        currency,
+        timezone,
+      },
+    });
+
+    return NextResponse.json({ data: updatedHotel });
+  } catch (error) {
+    console.error("PATCH /api/hotel error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
+}
+</file>
+
 <file path="app/api/reports/revenue/route.ts">
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -2143,6 +1887,7 @@ import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
 import { BookingStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
+import { ClipboardList } from "lucide-react";
 
 type BookingSummary = {
   id: string;
@@ -2155,16 +1900,16 @@ type BookingSummary = {
   roomRate: number;
 };
 
-const statusColors = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  CONFIRMED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  CHECKED_IN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  CHECKED_OUT: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
-  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  NO_SHOW: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+const statusClasses: Record<string, string> = {
+  PENDING: "status-pending",
+  CONFIRMED: "status-confirmed",
+  CHECKED_IN: "status-occupied",
+  CHECKED_OUT: "status-checked-out",
+  CANCELLED: "status-cancelled",
+  NO_SHOW: "status-no-show",
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   PENDING: "Chờ duyệt",
   CONFIRMED: "Đã xác nhận",
   CHECKED_IN: "Đang ở",
@@ -2191,116 +1936,41 @@ export function RecentBookings() {
     fetchBookings();
   }, []);
 
-  if (bookings.length === 0) return <div className="p-4 text-center text-muted-foreground">Chưa có booking nào.</div>;
+  if (bookings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+        <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+        <p className="text-sm">Chưa có booking nào.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {bookings.map((booking) => (
-        <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold">{booking.guest.fullName}</span>
-              <Badge variant="secondary" className="text-xs">
+        <div key={booking.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm truncate">{booking.guest.fullName}</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0">
                 Phòng {booking.room.roomNumber}
               </Badge>
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {format(new Date(booking.checkInDate), "dd/MM", { locale: vi })} - {format(new Date(booking.checkOutDate), "dd/MM", { locale: vi })}
             </div>
           </div>
-          <div className="text-right">
-            <Badge className={statusColors[booking.status]}>
+          <div className="text-right shrink-0 ml-3">
+            <Badge variant="outline" className={statusClasses[booking.status]}>
               {statusLabels[booking.status]}
             </Badge>
-            <div className="text-sm font-medium mt-1">
+            <div className="text-xs font-medium mt-1 text-muted-foreground">
               {formatVND(booking.roomRate)}/đêm
             </div>
           </div>
         </div>
       ))}
     </div>
-  );
-}
-</file>
-
-<file path="components/layout/Header.tsx">
-"use client";
-
-import { useSession, signOut } from "next-auth/react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Menu } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Sidebar } from "./Sidebar";
-
-// 1. Khai báo kiểu dữ liệu cho props
-interface HeaderProps {
-  hotelName: string;
-}
-
-// 2. Nhận prop hotelName
-export function Header({ hotelName }: HeaderProps) {
-  const { data: session } = useSession();
-
-  return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between">
-        <div className="flex items-center">
-          <Sheet>
-            <SheetTrigger 
-              render={
-                <Button variant="ghost" size="icon" className="md:hidden" />
-              }
-            >
-              <Menu className="h-5 w-5" />
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0">
-              <Sidebar />
-            </SheetContent>
-          </Sheet>
-          {/* 3. Hiển thị tên động từ DB */}
-          <div className="hidden md:block font-bold ml-4">
-            {hotelName}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger 
-              render={
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full" />
-              }
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{session?.user?.name?.charAt(0) || "U"}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {session?.user?.email}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => signOut()}>
-                Đăng xuất
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </header>
   );
 }
 </file>
@@ -4858,6 +4528,292 @@ run();
 }
 </file>
 
+<file path="app/(dashboard)/bills/[id]/page.tsx">
+"use client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { formatVND } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Printer, Receipt,CreditCard,Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,DialogClose} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+
+export default function BillDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const { id } = use(params);
+  const [bill, setBill] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState("Tiền mặt");
+  
+  // Set giá trị mặc định khi mở Dialog
+  useEffect(() => {
+  if (bill && showConfirmPayment) {
+    setPayAmount(Number(bill.amountDue));
+  }
+  }, [bill, showConfirmPayment]);
+
+  const fetchBill = async () => {
+    try {
+      const res = await fetch(`/api/bills/${id}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setBill(json.data);
+    } catch (error: any) {
+      toast.error(error.message || "Không thể tải chi tiết hóa đơn");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (payAmount <= 0 && bill.amountDue > 0) {
+      toast.error("Vui lòng nhập số tiền hợp lệ");
+      return;
+    }
+    setPaymentLoading(true);
+    try {
+      const res = await fetch(`/api/bills/${id}/pay`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: payAmount, method: payMethod })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Thanh toán thành công!");
+      setShowConfirmPayment(false);
+      fetchBill(); // Refresh data
+    } catch (error: any) {
+      toast.error(error.message || "Lỗi khi xử lý thanh toán");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBill();
+  }, [id]);
+
+  if (loading) return <div className="p-8 text-center text-muted-foreground">Đang tải...</div>;
+  if (!bill) return <div className="p-8 text-center text-muted-foreground">Không tìm thấy hóa đơn.</div>;
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="ghost" onClick={() => router.back()} className="min-h-[44px]">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
+          </Button>
+          <h2 className="text-2xl font-bold tracking-tight">Chi tiết Hóa đơn</h2>
+          <Badge
+            variant="outline"
+            className={Number(bill.amountDue) <= 0 ? "status-settled" : "status-open"}
+          >
+            {Number(bill.amountDue) <= 0 ? "Đã thanh toán" : "Chưa thanh toán hết"}
+          </Badge>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="min-h-[44px]">
+            <Printer className="h-4 w-4 mr-2" /> In hóa đơn
+          </Button>
+          
+          <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
+            <DialogTrigger render={
+              <Button disabled={bill.status === "SETTLED"} className="min-h-[44px]">
+                <CreditCard className="h-4 w-4 mr-2" /> Thu tiền
+              </Button>
+            } />
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Xác nhận thanh toán</DialogTitle>
+                <DialogDescription>
+                  Hóa đơn này sẽ được đánh dấu là đã thanh toán toàn bộ. Bạn đã nhận đủ số tiền <strong>{formatVND(bill.amountDue)}</strong> từ khách hàng chưa?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <DialogClose render={<Button variant="outline" disabled={paymentLoading} />}>
+                  Hủy
+                </DialogClose>
+                <Button onClick={handleConfirmPayment} disabled={paymentLoading}>
+                  {paymentLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Xác nhận đã thu tiền
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Receipt className="h-5 w-5 mr-2 text-primary" />
+                  Hóa đơn #{bill.billNumber}
+                </div>
+                <span className="text-sm font-normal text-muted-foreground">
+                  Ngày tạo: {format(new Date(bill.createdAt), "dd/MM/yyyy HH:mm")}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Desktop: Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mô tả</TableHead>
+                      <TableHead className="text-right">Số lượng</TableHead>
+                      <TableHead className="text-right">Đơn giá</TableHead>
+                      <TableHead className="text-right">Thành tiền</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>
+                        Tiền phòng ({bill.booking.room.roomNumber})
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(bill.booking.checkInDate), "dd/MM")} - {format(new Date(bill.booking.checkOutDate), "dd/MM")}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right">{bill.booking.numNights}</TableCell>
+                      <TableCell className="text-right">{formatVND(bill.booking.roomRate)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatVND(bill.subtotalRoom)}</TableCell>
+                    </TableRow>
+
+                    {/* Dịch vụ */}
+                    {bill.booking.bookingServices?.map((bs: any) => (
+                      <TableRow key={bs.id}>
+                        <TableCell>{bs.serviceName}</TableCell>
+                        <TableCell className="text-right">{Number(bs.quantity)}</TableCell>
+                        <TableCell className="text-right">{formatVND(Number(bs.unitPrice))}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatVND(Number(bs.subtotal))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Card list */}
+              <div className="md:hidden space-y-2">
+                <div className="rounded-lg border p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-sm">Tiền phòng ({bill.booking.room.roomNumber})</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(bill.booking.checkInDate), "dd/MM")} - {format(new Date(bill.booking.checkOutDate), "dd/MM")}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-sm">{formatVND(bill.subtotalRoom)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{bill.booking.numNights} x {formatVND(bill.booking.roomRate)}</p>
+                </div>
+                {bill.booking.bookingServices?.map((bs: any) => (
+                  <div key={bs.id} className="rounded-lg border p-3">
+                    <div className="flex justify-between items-start">
+                      <p className="font-medium text-sm">{bs.serviceName}</p>
+                      <p className="font-semibold text-sm">{formatVND(Number(bs.subtotal))}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{Number(bs.quantity)} x {formatVND(Number(bs.unitPrice))}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 space-y-2 max-w-xs ml-auto">
+                <div className="flex justify-between text-sm">
+                  <span>Tạm tính phòng:</span>
+                  <span>{formatVND(bill.subtotalRoom)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tạm tính dịch vụ:</span>
+                  <span>{formatVND(bill.subtotalServices)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Thuế/Phí:</span>
+                  <span>{formatVND(bill.taxAmount)}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Tổng cộng:</span>
+                  <span className="text-primary">{formatVND(bill.totalAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Đã đặt cọc:</span>
+                  <span>-{formatVND(bill.depositApplied)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Đã thanh toán:</span>
+                  <span>-{formatVND(bill.payments?.reduce((acc: number, p: any) => acc + Number(p.amount), 0) || 0)}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-bold text-xl">
+                  <span>Còn lại:</span>
+                  <span className={Number(bill.amountDue) > 0 ? "text-red-600" : "text-green-600"}>{formatVND(bill.amountDue)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Thông tin khách hàng</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-2">
+              <p className="font-bold">{bill.booking.guest.fullName}</p>
+              <p>{bill.booking.guest.phone}</p>
+              <Separator />
+              <p className="text-xs text-muted-foreground pt-2">Mã đặt phòng: {bill.booking.guest.bookingCode}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm">Lịch sử thanh toán</CardTitle>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={bill.status === "SETTLED"}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {bill.payments?.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Chưa có giao dịch thanh toán.</p>
+              ) : (
+                <div className="space-y-3">
+                  {bill.payments?.map((p: any) => (
+                    <div key={p.id} className="flex justify-between items-center text-sm">
+                      <div>
+                        <p className="font-medium">{formatVND(p.amount)}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(p.receivedAt), "dd/MM HH:mm")}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">{p.method}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="app/(dashboard)/bills/page.tsx">
 "use client";
 
@@ -4900,10 +4856,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  OPEN: "bg-red-500/10 text-red-600 border-red-500/20",
-  PARTIAL: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-  SETTLED: "bg-green-500/10 text-green-600 border-green-500/20",
-  VOID: "bg-gray-500/10 text-gray-600 border-gray-500/20",
+  OPEN: "status-open",
+  PARTIAL: "status-partial",
+  SETTLED: "status-settled",
+  VOID: "status-void",
 };
 
 export default function BillsPage() {
@@ -4928,12 +4884,57 @@ export default function BillsPage() {
   }, []);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Hóa đơn</h2>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Hóa đơn</h2>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-slate-900">
+      {/* Mobile: Card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : bills.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Receipt className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Chưa có hóa đơn nào.</p>
+          </div>
+        ) : (
+          bills.map((bill) => (
+            <div key={bill.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold text-sm">{bill.billNumber}</span>
+                </div>
+                <Badge variant="outline" className={statusVariants[bill.status]}>
+                  {statusLabels[bill.status]}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{bill.booking.guest.fullName}</span>
+                <span className="text-muted-foreground">{bill.booking.bookingCode}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Phòng {bill.booking.room.roomNumber}</span>
+                <span className="font-semibold">{formatVND(bill.totalAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t">
+                <span className={bill.amountDue > 0 ? "text-red-500 font-semibold text-sm" : "text-green-500 font-semibold text-sm"}>
+                  Còn lại: {formatVND(bill.amountDue)}
+                </span>
+                <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bills/${bill.id}`} />}>
+                  <Eye className="h-3.5 w-3.5 mr-1" /> Xem
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -4963,8 +4964,8 @@ export default function BillsPage() {
               bills.map((bill) => (
                 <TableRow key={bill.id}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center">
-                      <Receipt className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-muted-foreground" />
                       {bill.billNumber}
                     </div>
                   </TableCell>
@@ -5017,13 +5018,15 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
   Eye,
   CheckCircle,
-  LogOut
+  LogOut,
+  Loader2,
+  ClipboardList,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -5057,12 +5060,12 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  PENDING: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20",
-  CONFIRMED: "bg-blue-500/10 text-blue-600 dark:text-blue-500 border-blue-500/20",
-  CHECKED_IN: "bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20",
-  CHECKED_OUT: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
-  CANCELLED: "bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20",
-  NO_SHOW: "bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20",
+  PENDING: "status-pending",
+  CONFIRMED: "status-confirmed",
+  CHECKED_IN: "status-occupied",
+  CHECKED_OUT: "status-checked-out",
+  CANCELLED: "status-cancelled",
+  NO_SHOW: "status-no-show",
 };
 
 export default function BookingsPage() {
@@ -5118,29 +5121,80 @@ export default function BookingsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý đặt phòng</h2>
-        <div className="flex items-center space-x-2">
-          <Button render={<Link href="/bookings/new" />}>
-            <Plus className="mr-2 h-4 w-4" /> Tạo booking
-          </Button>
-        </div>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">Quản lý đặt phòng</h2>
+        <Button render={<Link href="/bookings/new" />} className="min-h-[44px] shrink-0">
+          <Plus className="mr-2 h-4 w-4" /> Tạo booking
+        </Button>
       </div>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Tìm theo mã, tên khách, số điện thoại..." 
-            className="pl-8"
+          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo mã, tên khách, số điện thoại..."
+            className="pl-8 min-h-[44px]"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-slate-900">
+      {/* ── Mobile: Card list ── */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : bookings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Không tìm thấy booking nào.</p>
+          </div>
+        ) : (
+          bookings.map((booking) => (
+            <div key={booking.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{booking.bookingCode}</span>
+                <Badge variant="outline" className={statusVariants[booking.status]}>
+                  {statusLabels[booking.status]}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{booking.guest.fullName}</span>
+                <span className="text-muted-foreground">Phòng {booking.room.roomNumber}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{format(new Date(booking.checkInDate), "dd/MM/yyyy")} → {format(new Date(booking.checkOutDate), "dd/MM/yyyy")}</span>
+                <span>{booking.numNights} đêm</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t">
+                <span className="font-semibold text-sm">{formatVND(booking.roomRate * booking.numNights)}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Xem
+                  </Button>
+                  {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
+                    <Button size="sm" className="min-h-[36px]" onClick={() => handleCheckIn(booking.id)}>
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" /> Check-in
+                    </Button>
+                  )}
+                  {booking.status === "CHECKED_IN" && (
+                    <Button size="sm" variant="outline" className="min-h-[36px] border-(--status-maintenance) text-(--status-maintenance)" onClick={() => handleCheckOut(booking.id)}>
+                      <LogOut className="h-3.5 w-3.5 mr-1" /> Check-out
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop: Table ── */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -5205,12 +5259,12 @@ export default function BookingsPage() {
                         </DropdownMenuItem>
                         {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                           <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Check-in
+                            <CheckCircle className="mr-2 h-4 w-4 text-(--status-available)" /> Check-in
                           </DropdownMenuItem>
                         )}
                         {booking.status === "CHECKED_IN" && (
                           <DropdownMenuItem onClick={() => handleCheckOut(booking.id)}>
-                            <LogOut className="mr-2 h-4 w-4 text-orange-500" /> Check-out
+                            <LogOut className="mr-2 h-4 w-4 text-(--status-maintenance)" /> Check-out
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -5243,7 +5297,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus } from "lucide-react";
+import { Search, UserPlus, Users as UsersIcon, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -5283,24 +5337,59 @@ export default function GuestsPage() {
   }, [search]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Danh sách khách hàng</h2>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Danh sách khách hàng</h2>
       </div>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Tìm theo tên, SĐT, số giấy tờ..." 
-            className="pl-8"
+          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo tên, SĐT, số giấy tờ..."
+            className="pl-8 min-h-[44px]"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-slate-900">
+      {/* Mobile: Card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : guests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <UsersIcon className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Không tìm thấy khách hàng nào.</p>
+          </div>
+        ) : (
+          guests.map((guest) => (
+            <div key={guest.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{guest.fullName}</span>
+                {guest.isVip ? (
+                  <Badge className="bg-amber-500 text-white">VIP</Badge>
+                ) : (
+                  <Badge variant="outline">Thường</Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>{guest.phone || "N/A"}</span>
+                <span>{guest.idNumber || "N/A"}</span>
+                <span>{guest._count.bookings} lượt ở</span>
+                <span className="font-semibold text-foreground">{formatVND(guest.totalSpent)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -5345,7 +5434,7 @@ export default function GuestsPage() {
                   <TableCell className="font-medium">{formatVND(guest.totalSpent)}</TableCell>
                   <TableCell>
                     {guest.isVip ? (
-                      <Badge className="bg-amber-500">VIP</Badge>
+                      <Badge className="bg-amber-500 text-white">VIP</Badge>
                     ) : (
                       <Badge variant="outline">Thường</Badge>
                     )}
@@ -5355,6 +5444,50 @@ export default function GuestsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/layout.tsx">
+import { Header } from "@/components/layout/Header";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma"; // 1. Import prisma
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  // 2. Lấy thông tin khách sạn từ DB
+  const hotel = await prisma.hotel.findUnique({
+    where: { id: session.user.hotelId },
+    select: { name: true }, // Chỉ lấy cột name cho nhẹ
+  });
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-64 shrink-0 sticky top-0 h-screen flex-col">
+        <Sidebar />
+      </aside>
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header hotelName={hotel?.name || "Tiny HMS"} />
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -5411,160 +5544,6 @@ export async function POST(
     return NextResponse.json({ data: result });
   } catch (error) {
     console.error("POST /api/bookings/[id]/checkout error:", error);
-    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
-  }
-}
-</file>
-
-<file path="app/api/bookings/[id]/services/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const AddBookingServiceSchema = z.object({
-  serviceId: z.string().uuid().optional(),
-  serviceName: z.string().min(1).optional(),
-  quantity: z.number().positive(),
-  unitPrice: z.number().min(0).optional(),
-  notes: z.string().optional(),
-});
-
-
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-
-  try {
-    const parsed = AddBookingServiceSchema.safeParse(await req.json());
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
-    }
-
-    const hotelId = session.user.hotelId;
-    const data = parsed.data;
-
-    const booking = await prisma.booking.findUnique({
-      where: { id, hotelId },
-      include: { bill: true },
-    });
-
-    if (!booking) {
-      return NextResponse.json({ error: "Không tìm thấy booking" }, { status: 404 });
-    }
-
-    if (booking.status !== "CHECKED_IN") {
-      return NextResponse.json(
-        { error: "Chỉ có thể thêm dịch vụ khi khách đang ở (CHECKED_IN)" },
-        { status: 400 }
-      );
-    }
-
-    let serviceId: string | null = null;
-    let serviceName = data.serviceName ?? "";
-    let unitPrice = data.unitPrice ?? 0;
-
-    if (data.serviceId) {
-      const service = await prisma.serviceCatalog.findFirst({
-        where: { id: data.serviceId, hotelId, isActive: true },
-      });
-      if (!service) {
-        return NextResponse.json({ error: "Dịch vụ không hợp lệ hoặc đã ngừng kinh doanh" }, { status: 400 });
-      }
-      serviceId = service.id;
-      serviceName = service.name;
-      unitPrice = Number(service.unitPrice);
-    } else {
-      if (!serviceName.trim()) {
-        return NextResponse.json({ error: "Thiếu tên dịch vụ" }, { status: 400 });
-      }
-      if (data.unitPrice === undefined) {
-        return NextResponse.json({ error: "Vui lòng nhập đơn giá" }, { status: 400 });
-      }
-      unitPrice = data.unitPrice;
-    }
-
-    const quantity = Number(data.quantity);
-    const subtotal = quantity * unitPrice;
-
-    const result = await prisma.$transaction(async (tx) => {
-      const bookingService = await tx.bookingService.create({
-        data: {
-          bookingId: booking.id,
-          serviceId,
-          serviceName,
-          quantity,
-          unitPrice,
-          subtotal,
-          recordedBy: session.user.id,
-          notes: data.notes,
-        },
-      });
-
-      const servicesAgg = await tx.bookingService.aggregate({
-        where: { bookingId: booking.id },
-        _sum: { subtotal: true },
-      });
-      const subtotalServices = Number(servicesAgg._sum.subtotal ?? 0);
-      const subtotalRoom = Number(booking.roomRate) * booking.numNights;
-
-      const bill = booking.bill
-        ? await tx.bill.findUnique({
-            where: { id: booking.bill.id },
-            include: { payments: true },
-          })
-        : null;
-
-      const paidAmount = bill
-        ? bill.payments.reduce((sum, p) => sum + Number(p.amount), 0)
-        : 0;
-      const depositApplied = bill ? Number(bill.depositApplied) : Number(booking.depositAmount);
-      const discountAmount = bill ? Number(bill.discountAmount) : 0;
-
-      const totalAmount = subtotalRoom + subtotalServices - discountAmount;
-      const amountDue = Math.max(0, totalAmount - depositApplied - paidAmount);
-
-      let newStatus = "OPEN";
-      if (amountDue <= 0) {
-        newStatus = "SETTLED";
-      }
-
-      const updatedBill = bill
-        ? await tx.bill.update({
-            where: { id: bill.id },
-            data: {
-              subtotalRoom,
-              subtotalServices,
-              totalAmount,
-              amountDue,
-              status: newStatus as any, 
-            },
-          })
-        : await tx.bill.create({
-            data: {
-              bookingId: booking.id,
-              billNumber: `BILL-${Date.now()}`,
-              subtotalRoom,
-              subtotalServices,
-              totalAmount,
-              depositApplied,
-              amountDue,
-              status: "OPEN",
-            },
-          });
-
-      return { bookingService, bill: updatedBill };
-    });
-
-    return NextResponse.json({ data: result }, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/bookings/[id]/services error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
@@ -5826,6 +5805,65 @@ export async function POST(req: NextRequest) {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ── Status color tokens ── */
+:root {
+  --status-available: oklch(0.72 0.19 155);
+  --status-available-bg: oklch(0.95 0.05 155);
+  --status-occupied: oklch(0.62 0.19 250);
+  --status-occupied-bg: oklch(0.95 0.04 250);
+  --status-confirmed: oklch(0.62 0.22 290);
+  --status-confirmed-bg: oklch(0.95 0.05 290);
+  --status-pending: oklch(0.78 0.16 80);
+  --status-pending-bg: oklch(0.96 0.05 80);
+  --status-checked-out: oklch(0.55 0.02 250);
+  --status-checked-out-bg: oklch(0.95 0.01 250);
+  --status-maintenance: oklch(0.70 0.17 55);
+  --status-maintenance-bg: oklch(0.95 0.06 55);
+  --status-cancelled: oklch(0.63 0.20 25);
+  --status-cancelled-bg: oklch(0.95 0.05 25);
+  --status-no-show: oklch(0.70 0.17 55);
+  --status-no-show-bg: oklch(0.95 0.06 55);
+  --status-blocked: oklch(0.55 0.02 250);
+  --status-blocked-bg: oklch(0.95 0.01 250);
+  --status-open: oklch(0.63 0.20 25);
+  --status-open-bg: oklch(0.95 0.05 25);
+  --status-partial: oklch(0.78 0.16 80);
+  --status-partial-bg: oklch(0.96 0.05 80);
+  --status-settled: oklch(0.72 0.19 155);
+  --status-settled-bg: oklch(0.95 0.05 155);
+  --status-void: oklch(0.55 0.02 250);
+  --status-void-bg: oklch(0.95 0.01 250);
+}
+
+.dark {
+  --status-available: oklch(0.78 0.17 155);
+  --status-available-bg: oklch(0.30 0.06 155);
+  --status-occupied: oklch(0.72 0.17 250);
+  --status-occupied-bg: oklch(0.30 0.05 250);
+  --status-confirmed: oklch(0.72 0.20 290);
+  --status-confirmed-bg: oklch(0.30 0.06 290);
+  --status-pending: oklch(0.82 0.14 80);
+  --status-pending-bg: oklch(0.30 0.05 80);
+  --status-checked-out: oklch(0.70 0.02 250);
+  --status-checked-out-bg: oklch(0.25 0.01 250);
+  --status-maintenance: oklch(0.75 0.15 55);
+  --status-maintenance-bg: oklch(0.30 0.05 55);
+  --status-cancelled: oklch(0.68 0.18 25);
+  --status-cancelled-bg: oklch(0.30 0.05 25);
+  --status-no-show: oklch(0.75 0.15 55);
+  --status-no-show-bg: oklch(0.30 0.05 55);
+  --status-blocked: oklch(0.70 0.02 250);
+  --status-blocked-bg: oklch(0.25 0.01 250);
+  --status-open: oklch(0.68 0.18 25);
+  --status-open-bg: oklch(0.30 0.05 25);
+  --status-partial: oklch(0.82 0.14 80);
+  --status-partial-bg: oklch(0.30 0.05 80);
+  --status-settled: oklch(0.78 0.17 155);
+  --status-settled-bg: oklch(0.30 0.06 155);
+  --status-void: oklch(0.70 0.02 250);
+  --status-void-bg: oklch(0.25 0.01 250);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -5836,6 +5874,37 @@ export async function POST(req: NextRequest) {
   html {
     @apply font-sans;
   }
+}
+
+/* ── Mobile bottom navigation ── */
+@layer components {
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center gap-0.5 min-h-[56px] flex-1 text-muted-foreground transition-colors;
+  }
+  .bottom-nav-item.active {
+    @apply text-primary font-medium;
+  }
+}
+
+/* ── Status badge utilities ── */
+@layer utilities {
+  .status-available  { background: var(--status-available-bg);  color: var(--status-available);  border-color: var(--status-available);  }
+  .status-occupied   { background: var(--status-occupied-bg);   color: var(--status-occupied);   border-color: var(--status-occupied);   }
+  .status-confirmed  { background: var(--status-confirmed-bg);  color: var(--status-confirmed);  border-color: var(--status-confirmed);  }
+  .status-pending    { background: var(--status-pending-bg);    color: var(--status-pending);    border-color: var(--status-pending);    }
+  .status-checked-out{ background: var(--status-checked-out-bg);color: var(--status-checked-out);border-color: var(--status-checked-out);}
+  .status-maintenance{ background: var(--status-maintenance-bg);color: var(--status-maintenance);border-color: var(--status-maintenance);}
+  .status-cancelled  { background: var(--status-cancelled-bg);  color: var(--status-cancelled);  border-color: var(--status-cancelled);  }
+  .status-no-show    { background: var(--status-no-show-bg);    color: var(--status-no-show);    border-color: var(--status-no-show);    }
+  .status-blocked    { background: var(--status-blocked-bg);    color: var(--status-blocked);    border-color: var(--status-blocked);    }
+  .status-open       { background: var(--status-open-bg);       color: var(--status-open);       border-color: var(--status-open);       }
+  .status-partial    { background: var(--status-partial-bg);    color: var(--status-partial);    border-color: var(--status-partial);    }
+  .status-settled    { background: var(--status-settled-bg);    color: var(--status-settled);    border-color: var(--status-settled);    }
+  .status-void       { background: var(--status-void-bg);       color: var(--status-void);       border-color: var(--status-void);       }
 }
 </file>
 
@@ -5857,8 +5926,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Create Next App",
-  description: "Generated by create next app",
+  title: "Tiny HMS - Quản lý khách sạn",
+  description: "Hệ thống quản lý khách sạn nhỏ gọn, hiệu quả",
 };
 
 export default function RootLayout({
@@ -5898,6 +5967,7 @@ import { RoomStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { BedDouble, Loader2 } from "lucide-react";
 
 type Room = {
   id: string;
@@ -5908,11 +5978,11 @@ type Room = {
   checkOutDate?: string;
 };
 
-const statusColors: Record<RoomStatus, string> = {
-  AVAILABLE: "bg-green-500/10 text-green-500 border-green-500/20",
-  OCCUPIED: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  MAINTENANCE: "bg-red-500/10 text-red-500 border-red-500/20",
-  BLOCKED: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+const statusClasses: Record<RoomStatus, string> = {
+  AVAILABLE: "status-available",
+  OCCUPIED: "status-occupied",
+  MAINTENANCE: "status-maintenance",
+  BLOCKED: "status-blocked",
 };
 
 const statusLabels: Record<RoomStatus, string> = {
@@ -5920,6 +5990,13 @@ const statusLabels: Record<RoomStatus, string> = {
   OCCUPIED: "Đang ở",
   MAINTENANCE: "Bảo trì",
   BLOCKED: "Khóa",
+};
+
+const statusDotColors: Record<RoomStatus, string> = {
+  AVAILABLE: "bg-(--status-available)",
+  OCCUPIED: "bg-(--status-occupied)",
+  MAINTENANCE: "bg-(--status-maintenance)",
+  BLOCKED: "bg-(--status-blocked)",
 };
 
 export function RoomStatusGrid() {
@@ -5943,27 +6020,56 @@ export function RoomStatusGrid() {
     fetchRooms();
   }, []);
 
-  if (loading) return <div>Đang tải sơ đồ phòng...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        <span className="text-sm">Đang tải sơ đồ phòng...</span>
+      </div>
+    );
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <BedDouble className="h-10 w-10 mb-2 opacity-40" />
+        <p className="text-sm">Chưa có phòng nào.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {rooms.map((room) => (
-        <Card 
-          key={room.id} 
-          className={cn(
-            "cursor-pointer hover:shadow-md transition-all",
-            statusColors[room.status]
-          )}
-        >
-          <CardContent className="p-4 flex flex-col items-center justify-center space-y-2 text-center min-h-[120px]">
-            <div className="text-2xl font-bold">{room.roomNumber}</div>
-            <div className="text-sm font-medium opacity-80">{room.roomType.name}</div>
-            <Badge variant="outline" className={cn("mt-2", statusColors[room.status])}>
-              {statusLabels[room.status]}
-            </Badge>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="space-y-3">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {(Object.keys(statusLabels) as RoomStatus[]).map((status) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <span className={cn("inline-block h-2.5 w-2.5 rounded-full", statusDotColors[status])} />
+            {statusLabels[status]}
+          </div>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
+        {rooms.map((room) => (
+          <Card
+            key={room.id}
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-all",
+              statusClasses[room.status]
+            )}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center space-y-1 text-center min-h-[90px] md:min-h-[110px]">
+              <div className="text-xl md:text-2xl font-bold">{room.roomNumber}</div>
+              <div className="text-[10px] md:text-xs font-medium opacity-70 truncate w-full">{room.roomType.name}</div>
+              <Badge variant="outline" className={cn("text-[10px] md:text-xs mt-1", statusClasses[room.status])}>
+                {statusLabels[room.status]}
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -6014,20 +6120,20 @@ export function StatsCards() {
   }, []);
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
       {/* Đang sử dụng */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Đang sử dụng</CardTitle>
-          <BedDouble className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Đang sử dụng</CardTitle>
+          <BedDouble className="h-5 w-5 text-(--status-occupied)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tabular-nums">
               {stats?.occupiedRooms ?? 0}
-              <span className="text-base font-normal text-muted-foreground">
+              <span className="text-sm font-normal text-muted-foreground">
                 /{stats?.totalRooms ?? 0}
               </span>
             </div>
@@ -6039,14 +6145,14 @@ export function StatsCards() {
       {/* Phòng trống */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Phòng trống</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Phòng trống</CardTitle>
+          <CheckCircle className="h-5 w-5 text-(--status-available)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-available)">
               {stats?.availableRooms ?? 0}
             </div>
           )}
@@ -6057,14 +6163,14 @@ export function StatsCards() {
       {/* Check-in hôm nay */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Check-in hôm nay</CardTitle>
-          <CalendarCheck className="h-4 w-4 text-blue-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Check-in hôm nay</CardTitle>
+          <CalendarCheck className="h-5 w-5 text-(--status-confirmed)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-confirmed)">
               {stats?.checkInsToday ?? 0}
             </div>
           )}
@@ -6075,14 +6181,14 @@ export function StatsCards() {
       {/* Check-out hôm nay */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Check-out hôm nay</CardTitle>
-          <LogOut className="h-4 w-4 text-orange-500" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">Check-out hôm nay</CardTitle>
+          <LogOut className="h-5 w-5 text-(--status-maintenance)" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold tabular-nums text-(--status-maintenance)">
               {stats?.checkOutsToday ?? 0}
             </div>
           )}
@@ -6090,6 +6196,113 @@ export function StatsCards() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+</file>
+
+<file path="components/layout/Header.tsx">
+"use client";
+
+import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Menu, Hotel } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sidebar } from "./Sidebar";
+
+interface HeaderProps {
+  hotelName: string;
+}
+
+const pageTitles: Record<string, string> = {
+  "/dashboard": "Tổng quan",
+  "/calendar": "Lịch phòng",
+  "/bookings": "Bookings",
+  "/rooms": "Phòng",
+  "/guests": "Khách hàng",
+  "/bills": "Hóa đơn",
+  "/settings": "Cài đặt",
+  "/onboarding": "Thiết lập",
+  "/services": "Dịch vụ",
+};
+
+export function Header({ hotelName }: HeaderProps) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+
+  const currentPageTitle =
+    Object.entries(pageTitles).find(
+      ([path]) => path === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(path)
+    )?.[1] ?? "";
+
+  return (
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
+        <div className="flex items-center gap-2">
+          {/* Mobile: hamburger + page title */}
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" className="md:hidden min-h-[44px] min-w-[44px]" />
+              }
+            >
+              <Menu className="h-5 w-5" />
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64">
+              <Sidebar />
+            </SheetContent>
+          </Sheet>
+          <span className="md:hidden font-semibold text-base truncate">
+            {currentPageTitle}
+          </span>
+
+          {/* Desktop: hotel name */}
+          <div className="hidden md:flex items-center gap-2">
+            <Hotel className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-sm">{hotelName}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full min-h-[44px] min-w-[44px]" />
+              }
+            >
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                  {session?.user?.name?.charAt(0) || "U"}
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {session?.user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()}>
+                Đăng xuất
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </header>
   );
 }
 </file>
@@ -6428,7 +6641,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, BedDouble } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
@@ -6450,10 +6663,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  AVAILABLE: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  OCCUPIED: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  MAINTENANCE: "bg-red-500/10 text-red-600 border-red-500/20",
-  BLOCKED: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  AVAILABLE: "status-available",
+  OCCUPIED: "status-occupied",
+  MAINTENANCE: "status-maintenance",
+  BLOCKED: "status-blocked",
 };
 
 export default function RoomsPage() {
@@ -6478,10 +6691,10 @@ export default function RoomsPage() {
   }, []);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý Phòng</h2>
-        <Button render={<Link href="/onboarding" />} nativeButton={false}>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">Quản lý Phòng</h2>
+        <Button render={<Link href="/onboarding" />} nativeButton={false} className="min-h-[44px] shrink-0">
           <Plus className="mr-2 h-4 w-4" /> Thêm phòng
         </Button>
       </div>
@@ -6503,7 +6716,8 @@ export default function RoomsPage() {
         </TabsContent>
         
         <TabsContent value="list" className="space-y-4">
-          <div className="rounded-md border bg-white dark:bg-slate-900">
+          {/* Desktop: Table */}
+          <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -6541,10 +6755,190 @@ export default function RoomsPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile: Card list */}
+          <div className="md:hidden space-y-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <span className="text-sm">Đang tải...</span>
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <BedDouble className="h-10 w-10 mb-2 opacity-40" />
+                <p className="text-sm">Chưa có phòng nào.</p>
+              </div>
+            ) : (
+              rooms.map((room) => (
+                <div key={room.id} className="flex items-center justify-between rounded-lg border p-3 bg-card">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold">P{room.roomNumber}</span>
+                    <span className="text-sm text-muted-foreground">{room.roomType.name}</span>
+                  </div>
+                  <Badge variant="outline" className={statusVariants[room.status]}>
+                    {statusLabels[room.status]}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
+}
+</file>
+
+<file path="app/api/bookings/[id]/services/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const AddBookingServiceSchema = z.object({
+  serviceId: z.string().uuid().optional(),
+  serviceName: z.string().min(1).optional(),
+  quantity: z.number().positive(),
+  unitPrice: z.number().min(0).optional(),
+  notes: z.string().optional(),
+});
+
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const parsed = AddBookingServiceSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    }
+
+    const hotelId = session.user.hotelId;
+    const data = parsed.data;
+
+    const booking = await prisma.booking.findUnique({
+      where: { id, hotelId },
+      include: { bill: true },
+    });
+
+    if (!booking) {
+      return NextResponse.json({ error: "Không tìm thấy booking" }, { status: 404 });
+    }
+
+    if (booking.status !== "CHECKED_IN") {
+      return NextResponse.json(
+        { error: "Chỉ có thể thêm dịch vụ khi khách đang ở (CHECKED_IN)" },
+        { status: 400 }
+      );
+    }
+
+    let serviceId: string | null = null;
+    let serviceName = data.serviceName ?? "";
+    let unitPrice = data.unitPrice ?? 0;
+
+    if (data.serviceId) {
+      const service = await prisma.serviceCatalog.findFirst({
+        where: { id: data.serviceId, hotelId, isActive: true },
+      });
+      if (!service) {
+        return NextResponse.json({ error: "Dịch vụ không hợp lệ hoặc đã ngừng kinh doanh" }, { status: 400 });
+      }
+      serviceId = service.id;
+      serviceName = service.name;
+      unitPrice = Number(service.unitPrice);
+    } else {
+      if (!serviceName.trim()) {
+        return NextResponse.json({ error: "Thiếu tên dịch vụ" }, { status: 400 });
+      }
+      if (data.unitPrice === undefined) {
+        return NextResponse.json({ error: "Vui lòng nhập đơn giá" }, { status: 400 });
+      }
+      unitPrice = data.unitPrice;
+    }
+
+    const quantity = Number(data.quantity);
+    const subtotal = quantity * unitPrice;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const bookingService = await tx.bookingService.create({
+        data: {
+          bookingId: booking.id,
+          serviceId,
+          serviceName,
+          quantity,
+          unitPrice,
+          subtotal,
+          recordedBy: session.user.id,
+          notes: data.notes,
+        },
+      });
+
+      const servicesAgg = await tx.bookingService.aggregate({
+        where: { bookingId: booking.id },
+        _sum: { subtotal: true },
+      });
+      const subtotalServices = Number(servicesAgg._sum.subtotal ?? 0);
+      const subtotalRoom = Number(booking.roomRate) * booking.numNights;
+
+      const bill = booking.bill
+        ? await tx.bill.findUnique({
+            where: { id: booking.bill.id },
+            include: { payments: true },
+          })
+        : null;
+
+      const paidAmount = bill
+        ? bill.payments.reduce((sum, p) => sum + Number(p.amount), 0)
+        : 0;
+      const depositApplied = bill ? Number(bill.depositApplied) : Number(booking.depositAmount);
+      const discountAmount = bill ? Number(bill.discountAmount) : 0;
+
+      const totalAmount = subtotalRoom + subtotalServices - discountAmount;
+      const amountDue = Math.max(0, totalAmount - depositApplied - paidAmount);
+
+      let newStatus = "OPEN";
+      if (amountDue <= 0) {
+        newStatus = "SETTLED";
+      }
+
+      const updatedBill = bill
+        ? await tx.bill.update({
+            where: { id: bill.id },
+            data: {
+              subtotalRoom,
+              subtotalServices,
+              totalAmount,
+              amountDue,
+              status: newStatus as any, 
+            },
+          })
+        : await tx.bill.create({
+            data: {
+              bookingId: booking.id,
+              billNumber: `BILL-${Date.now()}`,
+              subtotalRoom,
+              subtotalServices,
+              totalAmount,
+              depositApplied,
+              amountDue,
+              status: "OPEN",
+            },
+          });
+
+      return { bookingService, bill: updatedBill };
+    });
+
+    return NextResponse.json({ data: result }, { status: 201 });
+  } catch (error) {
+    console.error("POST /api/bookings/[id]/services error:", error);
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  }
 }
 </file>
 
@@ -6742,320 +7136,6 @@ next-env.d.ts
 
 .xml
 tiny_hms_ide_prompt.md
-</file>
-
-<file path="app/(dashboard)/onboarding/page.tsx">
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Building2, 
-  BedDouble, 
-  DoorOpen, 
-  Loader2,
-  Plus,
-  ArrowLeft,
-} from "lucide-react";
-import { toast } from "sonner";
-
-import Link from "next/link";
-
-type RoomType = {
-  id: string;
-  name: string;
-  maxOccupancy: number;
-  roomPrices: { pricePerNight: number }[];
-};
-
-type Room = {
-  id: string;
-  roomNumber: string;
-  roomType: { name: string };
-};
-
-export default function HotelSetupPage() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState("room-types");
-  
-  // Data
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
-  // Forms
-  const [rtName, setRtName] = useState("");
-  const [rtOccupancy, setRtOccupancy] = useState("2");
-  const [loadingRt, setLoadingRt] = useState(false);
-
-  const [rNumber, setRNumber] = useState("");
-  const [rTypeId, setRTypeId] = useState("");
-  const [loadingR, setLoadingR] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoadingData(true);
-    try {
-      const [rtRes, rRes] = await Promise.all([
-        fetch("/api/room-types"),
-        fetch("/api/rooms")
-      ]);
-      if (rtRes.ok) {
-        const rtJson = await rtRes.json();
-        setRoomTypes(rtJson.data || []);
-      }
-      if (rRes.ok) {
-        const rJson = await rRes.json();
-        setRooms(rJson.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching setup data:", error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  const handleCreateRoomType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rtName) return toast.error("Vui lòng điền tên loại phòng");
-    setLoadingRt(true);
-    try {
-      const res = await fetch("/api/room-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: rtName,
-          maxOccupancy: Number(rtOccupancy),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
-      toast.success("Tạo loại phòng thành công");
-      setRtName("");
-      setRoomTypes([...roomTypes, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoadingRt(false);
-    }
-  };
-
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rNumber || !rTypeId) return toast.error("Vui lòng nhập số phòng và chọn loại phòng");
-    setLoadingR(true);
-    try {
-      const res = await fetch("/api/rooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomNumber: rNumber,
-          roomTypeId: rTypeId, 
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
-      toast.success(`Đã tạo phòng ${rNumber}`);
-      setRNumber("");
-      setRooms([...rooms, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoadingR(false);
-    }
-  };
-
-  return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Thiết lập khách sạn</h2>
-            <p className="text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
-          </div>
-        </div>
-        <Button onClick={() => router.push("/dashboard")}>
-          Về Dashboard
-        </Button>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="room-types" className="flex items-center gap-2">
-            <BedDouble className="h-4 w-4" />
-            Loại phòng
-          </TabsTrigger>
-          <TabsTrigger value="rooms" className="flex items-center gap-2">
-            <DoorOpen className="h-4 w-4" />
-            Phòng
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ROOM TYPES TAB */}
-        <TabsContent value="room-types" className="space-y-4">
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle>Thêm loại phòng</CardTitle>
-                <CardDescription>Tạo các hạng phòng như Standard, Deluxe...</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateRoomType} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Tên loại phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: Phòng Standard" 
-                      value={rtName} 
-                      onChange={(e) => setRtName(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Số khách tối đa</Label>
-                    <Input 
-                      type="number" 
-                      value={rtOccupancy} 
-                      onChange={(e) => setRtOccupancy(e.target.value)} 
-                      min="1"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loadingRt}>
-                    {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Tạo loại phòng
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Danh sách loại phòng ({roomTypes.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingData ? (
-                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                ) : roomTypes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    Chưa có loại phòng nào.
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50 border-b">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
-                          <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
-                          <th className="px-4 py-3 text-center font-medium">Số phòng</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {roomTypes.map((rt: any) => (
-                          <tr key={rt.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 font-medium">{rt.name}</td>
-                            <td className="px-4 py-3 text-center">{rt.maxOccupancy} khách</td>
-                            <td className="px-4 py-3 text-center">{(rt as any)._count?.rooms || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* ROOMS TAB */}
-        <TabsContent value="rooms" className="space-y-4">
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle>Thêm phòng mới</CardTitle>
-                <CardDescription>Đánh số phòng và gán vào loại phòng.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateRoom} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Số phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: 101, P101..." 
-                      value={rNumber} 
-                      onChange={(e) => setRNumber(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
-                       
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn loại phòng..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roomTypes.map(rt => (
-                          <SelectItem key={rt.id} value={rt.id.toString()}>{rt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
-                    {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                    Tạo phòng
-                  </Button>
-                  {roomTypes.length === 0 && (
-                    <p className="text-[10px] text-destructive text-center mt-2">
-                      Bạn cần tạo Loại phòng trước khi tạo Phòng.
-                    </p>
-                  )}
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingData ? (
-                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                ) : rooms.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    Chưa có phòng nào.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {rooms.map((r) => (
-                      <div key={r.id} className="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 bg-white hover:border-primary transition-colors">
-                        <span className="text-xl font-bold">{r.roomNumber}</span>
-                        <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded">
-                          {r.roomType.name}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
 </file>
 
 <file path="app/api/bookings/route.ts">
@@ -8384,126 +8464,6 @@ export function BookingCalendar() {
 }
 </file>
 
-<file path="components/layout/Sidebar.tsx">
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  CalendarDays,
-  BedDouble,
-  Users,
-  Settings,
-  ReceiptText,
-  ClipboardList,
-  BarChart3,
-  Brush,
-  ShoppingBag,
-  PlusCircle,
-  Building2,
-  LogOut,
-} from "lucide-react";
-import { signOut } from "next-auth/react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-const mainNav = [
-  { href: "/dashboard",   label: "Tổng quan",   icon: LayoutDashboard },
-  { href: "/calendar",    label: "Lịch phòng",  icon: CalendarDays },
-  { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
-  { href: "/rooms",       label: "Phòng",       icon: BedDouble },
-  { href: "/guests",      label: "Khách hàng",  icon: Users },
-  { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
-  // { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
-];
-
-const settingsNav = [
-  { href: "/settings/hotel", label: "Thông tin khách sạn", icon: Building2 },
-  { href: "/onboarding",     label: "Thiết lập phòng",    icon: Settings },
-  // { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
-];
-
-export function Sidebar({ className }: SidebarProps) {
-  const pathname = usePathname();
-
-  function isActive(href: string) {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
-  }
-
-  return (
-    <div className={cn("pb-12 border-r h-full", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <h2 className="mb-3 px-4 text-lg font-semibold tracking-tight">
-            Quản lý khách sạn
-          </h2>
-
-          {/* ── New Booking CTA ── */}
-          <Button
-            className="w-full justify-start gap-2 mb-3"
-            render={<Link href="/bookings/new" />}
-            nativeButton={false}
-          >
-            <PlusCircle className="h-4 w-4" />
-            Tạo booking mới
-          </Button>
-
-          {/* ── Main nav ── */}
-          <div className="space-y-0.5">
-            {mainNav.map(({ href, label, icon: Icon }) => (
-              <Button
-                key={href}
-                variant={isActive(href) ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                render={<Link href={href} />}
-                nativeButton={false}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Settings section ── */}
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Cài đặt
-          </h2>
-          <div className="space-y-0.5">
-            {settingsNav.map(({ href, label, icon: Icon }) => (
-              <Button
-                key={href}
-                variant={isActive(href) ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                render={<Link href={href} />}
-                nativeButton={false}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {label}
-              </Button>
-            ))}
-
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 mt-4"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Đăng xuất
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="prisma/schema.prisma">
 generator client {
   provider = "prisma-client-js"
@@ -8848,12 +8808,12 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  PENDING: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20",
-  CONFIRMED: "bg-blue-500/10 text-blue-600 dark:text-blue-500 border-blue-500/20",
-  CHECKED_IN: "bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20",
-  CHECKED_OUT: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
-  CANCELLED: "bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20",
-  NO_SHOW: "bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20",
+  PENDING: "status-pending",
+  CONFIRMED: "status-confirmed",
+  CHECKED_IN: "status-occupied",
+  CHECKED_OUT: "status-checked-out",
+  CANCELLED: "status-cancelled",
+  NO_SHOW: "status-no-show",
 };
 
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -8967,27 +8927,28 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Đang tải...</div>;
+  if (loading) return <div className="p-8 text-center text-muted-foreground">Đang tải...</div>;
   if (!booking) return null;
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" onClick={() => router.back()}>
+    <div className="space-y-6 p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="ghost" onClick={() => router.back()} className="min-h-[44px]">
             <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Chi tiết đặt phòng</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Chi tiết đặt phòng</h2>
           <Badge variant="outline" className={statusVariants[booking.status]}>
             {statusLabels[booking.status]}
           </Badge>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
+        <div className="flex gap-2">
+          <Button variant="outline" className="min-h-[44px]">
             <Printer className="h-4 w-4 mr-2" /> In phiếu
           </Button>
           {booking.status === "CHECKED_IN" && booking.bill?.id && (
-            <Button variant="default" nativeButton={false} render={<Link href={`/bills/${booking.bill.id}`}  />}>
+            <Button variant="default" nativeButton={false} render={<Link href={`/bills/${booking.bill.id}`} />} className="min-h-[44px]">
               <Receipt className="h-4 w-4 mr-2" /> Xem hóa đơn
             </Button>
           )}
@@ -8995,7 +8956,72 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        {/* ── Mobile: Actions on top ── */}
+        <div className="space-y-6 lg:order-2">
+          {/* Quick actions — shown first on mobile */}
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">Thao tác nhanh</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col space-y-2">
+              {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
+                <Button className="w-full justify-start min-h-[48px] text-base" onClick={() => handleAction("checkin")}>
+                  <CheckCircle className="mr-2 h-5 w-5" /> Thực hiện Check-in
+                </Button>
+              )}
+              {booking.status === "CHECKED_IN" && (
+                <Button className="w-full justify-start min-h-[48px] text-base bg-orange-600 hover:bg-orange-700" onClick={() => handleAction("checkout")}>
+                  <LogOut className="mr-2 h-5 w-5" /> Thực hiện Check-out
+                </Button>
+              )}
+              {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
+                <Button variant="outline" className="w-full justify-start min-h-[44px] text-red-600 border-red-500/20 hover:bg-red-50 hover:text-red-700" onClick={() => handleAction("cancel")}>
+                  <Ban className="mr-2 h-4 w-4" /> Hủy đặt phòng
+                </Button>
+              )}
+              {booking.status === "CHECKED_OUT" && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start min-h-[44px] border-orange-500/20 text-orange-600 hover:bg-orange-50"
+                  onClick={() => handleAction("undo-checkout")}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" /> Hoàn tác Check-out
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2 text-primary" />
+                Khách hàng
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Họ tên</p>
+                <p className="font-bold">{booking.guest.fullName}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Số điện thoại</p>
+                <p className="font-semibold">{booking.guest.phone || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Giấy tờ ({booking.guest.idType})</p>
+                <p className="font-semibold">{booking.guest.idNumber || "N/A"}</p>
+              </div>
+              <Separator />
+              <div className="pt-1">
+                <p className="text-sm text-muted-foreground">Người tạo</p>
+                <p className="text-sm">{booking.creator.fullName} ({format(new Date(booking.createdAt), "dd/MM HH:mm")})</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Main content ── */}
+        <div className="lg:col-span-2 space-y-6 lg:order-1">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -9074,7 +9100,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                       </div>
                       <div className="flex items-center space-x-4">
                         <p className="font-semibold">{formatVND(Number(service.subtotal))}</p>
-                        
+
                         {/* Nút Xóa (chỉ hiển thị khi đang CHECKED_IN) */}
                         {booking.status === "CHECKED_IN" && (
                           <Button
@@ -9166,7 +9192,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Yêu cầu đặc biệt</CardTitle>
@@ -9185,70 +9211,476 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             </Card>
           </div>
         </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2 text-primary" />
-                Khách hàng
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Họ tên</p>
-                <p className="font-bold">{booking.guest.fullName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Số điện thoại</p>
-                <p className="font-semibold">{booking.guest.phone || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Giấy tờ ({booking.guest.idType})</p>
-                <p className="font-semibold">{booking.guest.idNumber || "N/A"}</p>
-              </div>
-              <Separator />
-              <div className="pt-2">
-                <p className="text-sm text-muted-foreground">Người tạo</p>
-                <p className="text-sm">{booking.creator.fullName} ({format(new Date(booking.createdAt), "dd/MM HH:mm")})</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-wider opacity-60 font-bold">Thao tác nhanh</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col space-y-2">
-              {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
-                <Button className="w-full justify-start" onClick={() => handleAction("checkin")}>
-                  <CheckCircle className="mr-2 h-4 w-4" /> Thực hiện Check-in
-                </Button>
-              )}
-              {booking.status === "CHECKED_IN" && (
-                <Button className="w-full justify-start bg-orange-600 hover:bg-orange-700" onClick={() => handleAction("checkout")}>
-                  <LogOut className="mr-2 h-4 w-4" /> Thực hiện Check-out
-                </Button>
-              )}
-              {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
-                <Button variant="outline" className="w-full justify-start text-red-500 border-red-500/20 hover:bg-red-50" onClick={() => handleAction("cancel")}>
-                  <Ban className="mr-2 h-4 w-4" /> Hủy đặt phòng
-                </Button>
-              )}
-              {booking.status === "CHECKED_OUT" && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-orange-500/20 text-orange-600 hover:bg-orange-50"
-                  onClick={() => handleAction("undo-checkout")}
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" /> Hoàn tác Check-out
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/onboarding/page.tsx">
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Building2, 
+  BedDouble, 
+  DoorOpen, 
+  Loader2,
+  Plus,
+  ArrowLeft,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import Link from "next/link";
+
+type RoomType = {
+  id: string;
+  name: string;
+  maxOccupancy: number;
+  roomPrices: { pricePerNight: number }[];
+};
+
+type Room = {
+  id: string;
+  roomNumber: string;
+  roomType: { name: string };
+};
+
+export default function HotelSetupPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("room-types");
+  
+  // Data
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Forms
+  const [rtName, setRtName] = useState("");
+  const [rtOccupancy, setRtOccupancy] = useState("2");
+  const [loadingRt, setLoadingRt] = useState(false);
+
+  const [rNumber, setRNumber] = useState("");
+  const [rTypeId, setRTypeId] = useState("");
+  const [loadingR, setLoadingR] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoadingData(true);
+    try {
+      const [rtRes, rRes] = await Promise.all([
+        fetch("/api/room-types"),
+        fetch("/api/rooms")
+      ]);
+      if (rtRes.ok) {
+        const rtJson = await rtRes.json();
+        setRoomTypes(rtJson.data || []);
+      }
+      if (rRes.ok) {
+        const rJson = await rRes.json();
+        setRooms(rJson.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching setup data:", error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleCreateRoomType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rtName) return toast.error("Vui lòng điền tên loại phòng");
+    setLoadingRt(true);
+    try {
+      const res = await fetch("/api/room-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: rtName,
+          maxOccupancy: Number(rtOccupancy),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      toast.success("Tạo loại phòng thành công");
+      setRtName("");
+      setRoomTypes([...roomTypes, data.data]);
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra");
+    } finally {
+      setLoadingRt(false);
+    }
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rNumber || !rTypeId) return toast.error("Vui lòng nhập số phòng và chọn loại phòng");
+    setLoadingR(true);
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomNumber: rNumber,
+          roomTypeId: rTypeId, 
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      toast.success(`Đã tạo phòng ${rNumber}`);
+      setRNumber("");
+      setRooms([...rooms, data.data]);
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra");
+    } finally {
+      setLoadingR(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")} className="min-h-[44px] min-w-[44px]">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Thiết lập khách sạn</h2>
+            <p className="text-sm text-muted-foreground">Quản lý cấu trúc phòng và loại phòng của bạn.</p>
+          </div>
+        </div>
+        <Button onClick={() => router.push("/dashboard")} className="min-h-[44px] shrink-0">
+          Về Dashboard
+        </Button>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="room-types" className="flex items-center gap-2">
+            <BedDouble className="h-4 w-4" />
+            Loại phòng
+          </TabsTrigger>
+          <TabsTrigger value="rooms" className="flex items-center gap-2">
+            <DoorOpen className="h-4 w-4" />
+            Phòng
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ROOM TYPES TAB */}
+        <TabsContent value="room-types" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm loại phòng</CardTitle>
+                <CardDescription>Tạo các hạng phòng như Standard, Deluxe...</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoomType} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Tên loại phòng (*)</Label>
+                    <Input 
+                      placeholder="VD: Phòng Standard" 
+                      value={rtName} 
+                      onChange={(e) => setRtName(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Số khách tối đa</Label>
+                    <Input 
+                      type="number" 
+                      value={rtOccupancy} 
+                      onChange={(e) => setRtOccupancy(e.target.value)} 
+                      min="1"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loadingRt}>
+                    {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Tạo loại phòng
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách loại phòng ({roomTypes.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : roomTypes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có loại phòng nào.
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
+                          <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
+                          <th className="px-4 py-3 text-center font-medium">Số phòng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {roomTypes.map((rt: any) => (
+                          <tr key={rt.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 font-medium">{rt.name}</td>
+                            <td className="px-4 py-3 text-center">{rt.maxOccupancy} khách</td>
+                            <td className="px-4 py-3 text-center">{(rt as any)._count?.rooms || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ROOMS TAB */}
+        <TabsContent value="rooms" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Thêm phòng mới</CardTitle>
+                <CardDescription>Đánh số phòng và gán vào loại phòng.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateRoom} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Số phòng (*)</Label>
+                    <Input 
+                      placeholder="VD: 101, P101..." 
+                      value={rNumber} 
+                      onChange={(e) => setRNumber(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Loại phòng (*)</Label>
+                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
+                       
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn loại phòng..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roomTypes.map(rt => (
+                          <SelectItem key={rt.id} value={rt.id.toString()}>{rt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
+                    {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Tạo phòng
+                  </Button>
+                  {roomTypes.length === 0 && (
+                    <p className="text-[10px] text-destructive text-center mt-2">
+                      Bạn cần tạo Loại phòng trước khi tạo Phòng.
+                    </p>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingData ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : rooms.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    Chưa có phòng nào.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {rooms.map((r) => (
+                      <div key={r.id} className="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 bg-white hover:border-primary transition-colors">
+                        <span className="text-xl font-bold">{r.roomNumber}</span>
+                        <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded">
+                          {r.roomType.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+</file>
+
+<file path="components/layout/Sidebar.tsx">
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  BedDouble,
+  Users,
+  Settings,
+  ReceiptText,
+  ClipboardList,
+  BarChart3,
+  Brush,
+  ShoppingBag,
+  PlusCircle,
+  Building2,
+  LogOut,
+  Hotel,
+} from "lucide-react";
+import { signOut } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+const mainNav = [
+  { href: "/dashboard",   label: "Tổng quan",   icon: LayoutDashboard },
+  { href: "/calendar",    label: "Lịch phòng",  icon: CalendarDays },
+  { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
+  { href: "/rooms",       label: "Phòng",       icon: BedDouble },
+  { href: "/guests",      label: "Khách hàng",  icon: Users },
+  { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
+  // { href: "/reports",     label: "Báo cáo",     icon: BarChart3 },
+];
+
+const settingsNav = [
+  { href: "/settings/hotel", label: "Thông tin khách sạn", icon: Building2 },
+  { href: "/onboarding",     label: "Thiết lập phòng",    icon: Settings },
+  // { href: "/services",       label: "Dịch vụ",        icon: ShoppingBag },
+];
+
+/* 5 mục hiển thị trên mobile bottom nav */
+const mobileNav = [
+  { href: "/dashboard",   label: "Tổng quan",   icon: LayoutDashboard },
+  { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
+  { href: "/rooms",       label: "Phòng",       icon: BedDouble },
+  { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
+  { href: "/guests",      label: "Khách",       icon: Users },
+];
+
+export function Sidebar({ className }: SidebarProps) {
+  const pathname = usePathname();
+
+  function isActive(href: string) {
+    if (href === "/dashboard") return pathname === "/dashboard";
+    return pathname.startsWith(href);
+  }
+
+  return (
+    <>
+      {/* ── Desktop sidebar ── */}
+      <div className={cn("hidden md:flex flex-col h-full border-r bg-background", className)}>
+        {/* Logo */}
+        <div className="flex items-center gap-2 px-4 h-16 border-b shrink-0">
+          <Hotel className="h-6 w-6 text-primary" />
+          <span className="font-semibold text-base tracking-tight">Quản lý khách sạn</span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-4">
+          <div className="px-3 py-2">
+            {/* ── New Booking CTA ── */}
+            <Button
+              className="w-full justify-start gap-2 mb-3 min-h-[44px]"
+              render={<Link href="/bookings/new" />}
+              nativeButton={false}
+            >
+              <PlusCircle className="h-4 w-4" />
+              Tạo booking mới
+            </Button>
+
+            {/* ── Main nav ── */}
+            <div className="space-y-0.5">
+              {mainNav.map(({ href, label, icon: Icon }) => (
+                <Button
+                  key={href}
+                  variant={isActive(href) ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start min-h-[44px]",
+                    isActive(href) && "font-medium"
+                  )}
+                  render={<Link href={href} />}
+                  nativeButton={false}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Settings section ── */}
+          <div className="px-3 py-2 mt-2">
+            <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Cài đặt
+            </h2>
+            <div className="space-y-0.5">
+              {settingsNav.map(({ href, label, icon: Icon }) => (
+                <Button
+                  key={href}
+                  variant={isActive(href) ? "secondary" : "ghost"}
+                  className="w-full justify-start min-h-[44px]"
+                  render={<Link href={href} />}
+                  nativeButton={false}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {label}
+                </Button>
+              ))}
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 mt-4 min-h-[44px]"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Đăng xuất
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <nav className="bottom-nav">
+        <div className="flex">
+          {mobileNav.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn("bottom-nav-item", isActive(href) && "active")}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] leading-tight">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }
 </file>

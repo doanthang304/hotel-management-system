@@ -10,7 +10,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, BedDouble } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
@@ -32,10 +32,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusVariants: Record<string, string> = {
-  AVAILABLE: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  OCCUPIED: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  MAINTENANCE: "bg-red-500/10 text-red-600 border-red-500/20",
-  BLOCKED: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  AVAILABLE: "status-available",
+  OCCUPIED: "status-occupied",
+  MAINTENANCE: "status-maintenance",
+  BLOCKED: "status-blocked",
 };
 
 export default function RoomsPage() {
@@ -60,10 +60,10 @@ export default function RoomsPage() {
   }, []);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý Phòng</h2>
-        <Button render={<Link href="/onboarding" />} nativeButton={false}>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">Quản lý Phòng</h2>
+        <Button render={<Link href="/onboarding" />} nativeButton={false} className="min-h-[44px] shrink-0">
           <Plus className="mr-2 h-4 w-4" /> Thêm phòng
         </Button>
       </div>
@@ -85,7 +85,8 @@ export default function RoomsPage() {
         </TabsContent>
         
         <TabsContent value="list" className="space-y-4">
-          <div className="rounded-md border bg-white dark:bg-slate-900">
+          {/* Desktop: Table */}
+          <div className="hidden md:block rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -122,6 +123,32 @@ export default function RoomsPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile: Card list */}
+          <div className="md:hidden space-y-2">
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <span className="text-sm">Đang tải...</span>
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <BedDouble className="h-10 w-10 mb-2 opacity-40" />
+                <p className="text-sm">Chưa có phòng nào.</p>
+              </div>
+            ) : (
+              rooms.map((room) => (
+                <div key={room.id} className="flex items-center justify-between rounded-lg border p-3 bg-card">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold">P{room.roomNumber}</span>
+                    <span className="text-sm text-muted-foreground">{room.roomType.name}</span>
+                  </div>
+                  <Badge variant="outline" className={statusVariants[room.status]}>
+                    {statusLabels[room.status]}
+                  </Badge>
+                </div>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>

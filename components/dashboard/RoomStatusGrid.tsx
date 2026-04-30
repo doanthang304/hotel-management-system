@@ -5,6 +5,7 @@ import { RoomStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { BedDouble, Loader2 } from "lucide-react";
 
 type Room = {
   id: string;
@@ -15,11 +16,11 @@ type Room = {
   checkOutDate?: string;
 };
 
-const statusColors: Record<RoomStatus, string> = {
-  AVAILABLE: "bg-green-500/10 text-green-500 border-green-500/20",
-  OCCUPIED: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  MAINTENANCE: "bg-red-500/10 text-red-500 border-red-500/20",
-  BLOCKED: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+const statusClasses: Record<RoomStatus, string> = {
+  AVAILABLE: "status-available",
+  OCCUPIED: "status-occupied",
+  MAINTENANCE: "status-maintenance",
+  BLOCKED: "status-blocked",
 };
 
 const statusLabels: Record<RoomStatus, string> = {
@@ -27,6 +28,13 @@ const statusLabels: Record<RoomStatus, string> = {
   OCCUPIED: "Đang ở",
   MAINTENANCE: "Bảo trì",
   BLOCKED: "Khóa",
+};
+
+const statusDotColors: Record<RoomStatus, string> = {
+  AVAILABLE: "bg-(--status-available)",
+  OCCUPIED: "bg-(--status-occupied)",
+  MAINTENANCE: "bg-(--status-maintenance)",
+  BLOCKED: "bg-(--status-blocked)",
 };
 
 export function RoomStatusGrid() {
@@ -50,27 +58,56 @@ export function RoomStatusGrid() {
     fetchRooms();
   }, []);
 
-  if (loading) return <div>Đang tải sơ đồ phòng...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        <span className="text-sm">Đang tải sơ đồ phòng...</span>
+      </div>
+    );
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <BedDouble className="h-10 w-10 mb-2 opacity-40" />
+        <p className="text-sm">Chưa có phòng nào.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {rooms.map((room) => (
-        <Card 
-          key={room.id} 
-          className={cn(
-            "cursor-pointer hover:shadow-md transition-all",
-            statusColors[room.status]
-          )}
-        >
-          <CardContent className="p-4 flex flex-col items-center justify-center space-y-2 text-center min-h-[120px]">
-            <div className="text-2xl font-bold">{room.roomNumber}</div>
-            <div className="text-sm font-medium opacity-80">{room.roomType.name}</div>
-            <Badge variant="outline" className={cn("mt-2", statusColors[room.status])}>
-              {statusLabels[room.status]}
-            </Badge>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="space-y-3">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {(Object.keys(statusLabels) as RoomStatus[]).map((status) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <span className={cn("inline-block h-2.5 w-2.5 rounded-full", statusDotColors[status])} />
+            {statusLabels[status]}
+          </div>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
+        {rooms.map((room) => (
+          <Card
+            key={room.id}
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-all",
+              statusClasses[room.status]
+            )}
+          >
+            <CardContent className="p-3 flex flex-col items-center justify-center space-y-1 text-center min-h-[90px] md:min-h-[110px]">
+              <div className="text-xl md:text-2xl font-bold">{room.roomNumber}</div>
+              <div className="text-[10px] md:text-xs font-medium opacity-70 truncate w-full">{room.roomType.name}</div>
+              <Badge variant="outline" className={cn("text-[10px] md:text-xs mt-1", statusClasses[room.status])}>
+                {statusLabels[room.status]}
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

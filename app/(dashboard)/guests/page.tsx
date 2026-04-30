@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus } from "lucide-react";
+import { Search, UserPlus, Users as UsersIcon, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -53,24 +53,59 @@ export default function GuestsPage() {
   }, [search]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Danh sách khách hàng</h2>
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Danh sách khách hàng</h2>
       </div>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Tìm theo tên, SĐT, số giấy tờ..." 
-            className="pl-8"
+          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo tên, SĐT, số giấy tờ..."
+            className="pl-8 min-h-[44px]"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-slate-900">
+      {/* Mobile: Card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm">Đang tải...</span>
+          </div>
+        ) : guests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <UsersIcon className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-sm">Không tìm thấy khách hàng nào.</p>
+          </div>
+        ) : (
+          guests.map((guest) => (
+            <div key={guest.id} className="rounded-lg border p-3 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{guest.fullName}</span>
+                {guest.isVip ? (
+                  <Badge className="bg-amber-500 text-white">VIP</Badge>
+                ) : (
+                  <Badge variant="outline">Thường</Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>{guest.phone || "N/A"}</span>
+                <span>{guest.idNumber || "N/A"}</span>
+                <span>{guest._count.bookings} lượt ở</span>
+                <span className="font-semibold text-foreground">{formatVND(guest.totalSpent)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -115,7 +150,7 @@ export default function GuestsPage() {
                   <TableCell className="font-medium">{formatVND(guest.totalSpent)}</TableCell>
                   <TableCell>
                     {guest.isVip ? (
-                      <Badge className="bg-amber-500">VIP</Badge>
+                      <Badge className="bg-amber-500 text-white">VIP</Badge>
                     ) : (
                       <Badge variant="outline">Thường</Badge>
                     )}
