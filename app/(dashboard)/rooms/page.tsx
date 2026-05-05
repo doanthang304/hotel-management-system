@@ -1,27 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, BedDouble } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { LayoutGrid, List, BedDouble, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Link from "next/link";
 
 type Room = {
   id: string;
   roomNumber: string;
   status: string;
-  roomType: { name: string; roomPrices: any[] };
+  roomType: { name: string; roomPrices: Array<{ pricePerNight: number; isDefault: boolean }> };
 };
 
 const statusLabels: Record<string, string> = {
@@ -41,6 +34,7 @@ const statusVariants: Record<string, string> = {
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   const fetchRooms = async () => {
     try {
@@ -48,7 +42,7 @@ export default function RoomsPage() {
       const res = await fetch("/api/rooms");
       const json = await res.json();
       setRooms(json.data || []);
-    } catch (error) {
+    } catch {
       toast.error("Không thể tải danh sách phòng");
     } finally {
       setLoading(false);
@@ -58,6 +52,24 @@ export default function RoomsPage() {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  const handleDeleteRoom = async (room: Room) => {
+    if (!confirm(`Xóa phòng ${room.roomNumber}?`)) return;
+
+    try {
+      setDeletingRoomId(room.id);
+      const res = await fetch(`/api/rooms/${room.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Không thể xóa phòng");
+
+      toast.success(json.message || `ÄĂ£ xĂ³a phĂ²ng ${room.roomNumber}`);
+      setRooms((prev) => prev.filter((item) => item.id !== room.id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");
+    } finally {
+      setDeletingRoomId(null);
+    }
+  };
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -72,27 +84,27 @@ export default function RoomsPage() {
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="grid">
-              <LayoutGrid className="h-4 w-4 mr-2" /> Sơ đồ
+              <LayoutGrid className="mr-2 h-4 w-4" /> Sơ đồ
             </TabsTrigger>
             <TabsTrigger value="list">
-              <List className="h-4 w-4 mr-2" /> Danh sách
+              <List className="mr-2 h-4 w-4" /> Danh sách
             </TabsTrigger>
           </TabsList>
         </div>
-        
+
         <TabsContent value="grid" className="space-y-4">
           <RoomStatusGrid />
         </TabsContent>
-        
+
         <TabsContent value="list" className="space-y-4">
-          {/* Desktop: Table */}
-          <div className="hidden md:block rounded-md border">
+          <div className="hidden rounded-md border md:block">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Số phòng</TableHead>
                   <TableHead>Hạng phòng</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -118,6 +130,17 @@ export default function RoomsPage() {
                           {statusLabels[room.status]}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                          disabled={deletingRoomId === room.id}
+                          onClick={() => handleDeleteRoom(room)}
+                        >
+                          {deletingRoomId === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -125,27 +148,37 @@ export default function RoomsPage() {
             </Table>
           </div>
 
-          {/* Mobile: Card list */}
-          <div className="md:hidden space-y-2">
+          <div className="space-y-2 md:hidden">
             {loading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <span className="text-sm">Đang tải...</span>
               </div>
             ) : rooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <BedDouble className="h-10 w-10 mb-2 opacity-40" />
+                <BedDouble className="mb-2 h-10 w-10 opacity-40" />
                 <p className="text-sm">Chưa có phòng nào.</p>
               </div>
             ) : (
               rooms.map((room) => (
-                <div key={room.id} className="flex items-center justify-between rounded-lg border p-3 bg-card">
+                <div key={room.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
                   <div className="flex items-center gap-3">
                     <span className="text-lg font-bold">P{room.roomNumber}</span>
                     <span className="text-sm text-muted-foreground">{room.roomType.name}</span>
                   </div>
-                  <Badge variant="outline" className={statusVariants[room.status]}>
-                    {statusLabels[room.status]}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={statusVariants[room.status]}>
+                      {statusLabels[room.status]}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                      disabled={deletingRoomId === room.id}
+                      onClick={() => handleDeleteRoom(room)}
+                    >
+                      {deletingRoomId === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               ))
             )}

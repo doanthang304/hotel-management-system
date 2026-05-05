@@ -1,30 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, BedDouble, DoorOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Building2, 
-  BedDouble, 
-  DoorOpen, 
-  Loader2,
-  Plus,
-  ArrowLeft,
-} from "lucide-react";
-import { toast } from "sonner";
-
-import Link from "next/link";
+import { Textarea } from "@/components/ui/textarea";
 
 type RoomType = {
   id: string;
   name: string;
   maxOccupancy: number;
   roomPrices: { pricePerNight: number }[];
+  _count?: { rooms: number };
 };
 
 type Room = {
@@ -33,39 +27,39 @@ type Room = {
   roomType: { name: string };
 };
 
+function parseRoomNumbers(input: string) {
+  return input
+    .split(/[\n,;]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 export default function HotelSetupPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("room-types");
-  
-  // Data
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-
-  // Forms
   const [rtName, setRtName] = useState("");
   const [rtOccupancy, setRtOccupancy] = useState("2");
   const [loadingRt, setLoadingRt] = useState(false);
-
-  const [rNumber, setRNumber] = useState("");
+  const [roomNumbersInput, setRoomNumbersInput] = useState("");
   const [rTypeId, setRTypeId] = useState("");
   const [loadingR, setLoadingR] = useState(false);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const parsedRoomNumbers = useMemo(() => parseRoomNumbers(roomNumbersInput), [roomNumbersInput]);
 
   const fetchData = async () => {
     setLoadingData(true);
     try {
-      const [rtRes, rRes] = await Promise.all([
-        fetch("/api/room-types"),
-        fetch("/api/rooms")
-      ]);
+      const [rtRes, rRes] = await Promise.all([fetch("/api/room-types"), fetch("/api/rooms")]);
+
       if (rtRes.ok) {
         const rtJson = await rtRes.json();
         setRoomTypes(rtJson.data || []);
       }
+
       if (rRes.ok) {
         const rJson = await rRes.json();
         setRooms(rJson.data || []);
@@ -77,9 +71,14 @@ export default function HotelSetupPage() {
     }
   };
 
-  const handleCreateRoomType = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreateRoomType = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!rtName) return toast.error("Vui lòng điền tên loại phòng");
+
     setLoadingRt(true);
     try {
       const res = await fetch("/api/room-types", {
@@ -92,40 +91,61 @@ export default function HotelSetupPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      
+
       toast.success("Tạo loại phòng thành công");
       setRtName("");
-      setRoomTypes([...roomTypes, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
+      setRoomTypes((prev) => [...prev, data.data]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     } finally {
       setLoadingRt(false);
     }
   };
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rNumber || !rTypeId) return toast.error("Vui lòng nhập số phòng và chọn loại phòng");
+  const handleCreateRoom = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rTypeId || parsedRoomNumbers.length === 0) {
+      return toast.error("Vui lòng nhập danh sách phòng và chọn loại phòng");
+    }
+
     setLoadingR(true);
     try {
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          roomNumber: rNumber,
-          roomTypeId: rTypeId, 
+          roomTypeId: rTypeId,
+          roomNumbers: parsedRoomNumbers,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      
-      toast.success(`Đã tạo phòng ${rNumber}`);
-      setRNumber("");
-      setRooms([...rooms, data.data]);
-    } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
+
+      toast.success(data.message || "Tạo phòng thành công");
+      setRoomNumbersInput("");
+      setRooms((prev) => [...prev, ...(data.data || [])]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     } finally {
       setLoadingR(false);
+    }
+  };
+
+  const handleDeleteRoom = async (room: Room) => {
+    if (!confirm(`Xóa phòng ${room.roomNumber}?`)) return;
+
+    setDeletingRoomId(room.id);
+    try {
+      const res = await fetch(`/api/rooms/${room.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(data.message || `Đã xóa phòng ${room.roomNumber}`);
+      setRooms((prev) => prev.filter((item) => item.id !== room.id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");
+    } finally {
+      setDeletingRoomId(null);
     }
   };
 
@@ -147,7 +167,7 @@ export default function HotelSetupPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <TabsList className="grid max-w-md w-full grid-cols-2">
           <TabsTrigger value="room-types" className="flex items-center gap-2">
             <BedDouble className="h-4 w-4" />
             Loại phòng
@@ -158,9 +178,8 @@ export default function HotelSetupPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ROOM TYPES TAB */}
         <TabsContent value="room-types" className="space-y-4">
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-3">
             <Card className="md:col-span-1">
               <CardHeader>
                 <CardTitle>Thêm loại phòng</CardTitle>
@@ -170,21 +189,11 @@ export default function HotelSetupPage() {
                 <form onSubmit={handleCreateRoomType} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Tên loại phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: Phòng Standard" 
-                      value={rtName} 
-                      onChange={(e) => setRtName(e.target.value)} 
-                      required 
-                    />
+                    <Input placeholder="VD: Phòng Standard" value={rtName} onChange={(event) => setRtName(event.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label>Số khách tối đa</Label>
-                    <Input 
-                      type="number" 
-                      value={rtOccupancy} 
-                      onChange={(e) => setRtOccupancy(e.target.value)} 
-                      min="1"
-                    />
+                    <Input type="number" value={rtOccupancy} onChange={(event) => setRtOccupancy(event.target.value)} min="1" />
                   </div>
                   <Button type="submit" className="w-full" disabled={loadingRt}>
                     {loadingRt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -202,13 +211,13 @@ export default function HotelSetupPage() {
                 {loadingData ? (
                   <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                 ) : roomTypes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <div className="rounded-lg border-2 border-dashed py-8 text-center text-muted-foreground">
                     Chưa có loại phòng nào.
                   </div>
                 ) : (
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className="overflow-hidden rounded-lg border">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 border-b">
+                      <thead className="border-b bg-slate-50">
                         <tr>
                           <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
                           <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
@@ -216,11 +225,11 @@ export default function HotelSetupPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {roomTypes.map((rt: any) => (
-                          <tr key={rt.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 font-medium">{rt.name}</td>
-                            <td className="px-4 py-3 text-center">{rt.maxOccupancy} khách</td>
-                            <td className="px-4 py-3 text-center">{(rt as any)._count?.rooms || 0}</td>
+                        {roomTypes.map((roomType) => (
+                          <tr key={roomType.id} className="transition-colors hover:bg-slate-50">
+                            <td className="px-4 py-3 font-medium">{roomType.name}</td>
+                            <td className="px-4 py-3 text-center">{roomType.maxOccupancy} khách</td>
+                            <td className="px-4 py-3 text-center">{roomType._count?.rooms || 0}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -232,45 +241,67 @@ export default function HotelSetupPage() {
           </div>
         </TabsContent>
 
-        {/* ROOMS TAB */}
         <TabsContent value="rooms" className="space-y-4">
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-3">
             <Card className="md:col-span-1">
               <CardHeader>
                 <CardTitle>Thêm phòng mới</CardTitle>
-                <CardDescription>Đánh số phòng và gán vào loại phòng.</CardDescription>
+                <CardDescription>Nhập nhiều phòng mùng loại bằng cách xuống dòng hoặc ngăn bằng dấu phẩy.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleCreateRoom} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Số phòng (*)</Label>
-                    <Input 
-                      placeholder="VD: 101, P101..." 
-                      value={rNumber} 
-                      onChange={(e) => setRNumber(e.target.value)} 
-                      required 
+                    <Label>Danh sách phòng (*)</Label>
+                    <Textarea
+                      rows={6}
+                      placeholder={"VD:\n101\n102\n103"}
+                      value={roomNumbersInput}
+                      onChange={(event) => setRoomNumbersInput(event.target.value)}
+                      className="resize-none"
+                      required
                     />
+                    <p className="text-xs text-muted-foreground">Sẽ tạo {parsedRoomNumbers.length} phòng.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Loại phòng (*)</Label>
-                    <Select value={rTypeId} onValueChange={(val) => setRTypeId(val || "")} required>
-                       
+                    <Select value={rTypeId} onValueChange={(value) => setRTypeId(value || "")} required>
                       <SelectTrigger>
-                        <SelectValue placeholder="Chọn loại phòng..." />
+                        {/* Bypass lỗi của thư viện bằng cách tự render tên nếu đã có rTypeId */}
+                        {rTypeId ? (
+                          <span className="flex-1 text-left">
+                            {roomTypes.find((rt) => rt.id === rTypeId)?.name}
+                          </span>
+                        ) : (
+                          <SelectValue placeholder="Chọn loại phòng..." />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
-                        {roomTypes.map(rt => (
-                          <SelectItem key={rt.id} value={rt.id.toString()}>{rt.name}</SelectItem>
+                        {roomTypes.map((roomType) => (
+                          <SelectItem key={roomType.id} value={roomType.id}>
+                            {roomType.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0}>
+                  {parsedRoomNumbers.length > 0 && (
+                    <div className="rounded-md border bg-muted/30 p-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Xem nhanh</p>
+                      <div className="flex flex-wrap gap-2">
+                        {parsedRoomNumbers.map((roomNumber) => (
+                          <span key={roomNumber} className="rounded-md border bg-background px-2 py-1 text-xs font-medium">
+                            {roomNumber}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <Button type="submit" className="w-full" disabled={loadingR || roomTypes.length === 0 || parsedRoomNumbers.length === 0}>
                     {loadingR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                     Tạo phòng
                   </Button>
                   {roomTypes.length === 0 && (
-                    <p className="text-[10px] text-destructive text-center mt-2">
+                    <p className="mt-2 text-center text-[10px] text-destructive">
                       Bạn cần tạo Loại phòng trước khi tạo Phòng.
                     </p>
                   )}
@@ -280,23 +311,41 @@ export default function HotelSetupPage() {
 
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
+                  <Button variant="outline" nativeButton={false} render={<Link href="/rooms" />}>
+                    Xem trang phòng
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingData ? (
                   <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                 ) : rooms.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <div className="rounded-lg border-2 border-dashed py-8 text-center text-muted-foreground">
                     Chưa có phòng nào.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {rooms.map((r) => (
-                      <div key={r.id} className="p-3 border rounded-lg flex flex-col items-center justify-center gap-1 bg-white hover:border-primary transition-colors">
-                        <span className="text-xl font-bold">{r.roomNumber}</span>
-                        <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded">
-                          {r.roomType.name}
-                        </span>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {rooms.map((room) => (
+                      <div key={room.id} className="rounded-lg border bg-white p-3 transition-colors hover:border-primary dark:bg-slate-950">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <span className="block text-xl font-bold">{room.roomNumber}</span>
+                            <span className="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {room.roomType.name}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                            disabled={deletingRoomId === room.id}
+                            onClick={() => handleDeleteRoom(room)}
+                          >
+                            {deletingRoomId === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

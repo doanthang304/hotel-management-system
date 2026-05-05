@@ -1,29 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format, differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { cn, formatVND, formatInputNumber, parseInputNumber } from "@/lib/utils";
+import { cn, formatInputNumber, formatVND, parseInputNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
+import { toast } from "sonner";
 
 const bookingFormSchema = z.object({
   roomId: z.string().min(1, "Vui lòng chọn phòng"),
@@ -45,16 +37,33 @@ const bookingFormSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
-// ─── Sub-types ────────────────────────────────────────────────────────────────
-
 type RoomOption = {
   id: string;
   roomNumber: string;
   status: string;
-  roomType: { name: string; roomPrices: { pricePerNight: number; isDefault: boolean }[] };
+  roomType: { name: string; roomPrices?: { pricePerNight: number; isDefault: boolean }[] };
 };
 
-// ─── RoomGrid ─────────────────────────────────────────────────────────────────
+type BookingFormInitialData = {
+  id: string;
+  bookingCode: string;
+  roomId: string;
+  checkInDate: string;
+  checkOutDate: string;
+  numNights: number;
+  roomRate: number;
+  depositAmount: number;
+  source: BookingFormValues["source"];
+  specialRequests?: string | null;
+  internalNotes?: string | null;
+  guest: {
+    fullName: string;
+    phone?: string | null;
+    idNumber?: string | null;
+    idType: "CCCD" | "PASSPORT" | "OTHER" | "DRIVER_LICENSE";
+    nationality?: string | null;
+  };
+};
 
 function RoomGrid({
   rooms,
@@ -63,12 +72,11 @@ function RoomGrid({
 }: {
   rooms: RoomOption[];
   selectedId: string;
-  onSelect: (r: RoomOption) => void;
+  onSelect: (room: RoomOption) => void;
 }) {
   const [filterType, setFilterType] = useState<string>("all");
-  const types = Array.from(new Set(rooms.map((r) => r.roomType.name)));
-
-  const filtered = filterType === "all" ? rooms : rooms.filter((r) => r.roomType.name === filterType);
+  const types = Array.from(new Set(rooms.map((room) => room.roomType.name)));
+  const filteredRooms = filterType === "all" ? rooms : rooms.filter((room) => room.roomType.name === filterType);
 
   return (
     <div className="space-y-2">
@@ -77,35 +85,30 @@ function RoomGrid({
           type="button"
           onClick={() => setFilterType("all")}
           className={cn(
-            "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
-            filterType === "all"
-              ? "bg-primary text-primary-foreground border-primary"
-              : "border-border hover:bg-muted"
+            "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+            filterType === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
           )}
         >
           Tất cả
         </button>
-        {types.map((t) => (
+        {types.map((type) => (
           <button
-            key={t}
+            key={type}
             type="button"
-            onClick={() => setFilterType(t)}
+            onClick={() => setFilterType(type)}
             className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors border",
-              filterType === t
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border hover:bg-muted"
+              "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+              filterType === type ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
             )}
           >
-            {t}
+            {type}
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-        {filtered.map((room) => {
-          const defaultPrice = room.roomType.roomPrices?.find((p) => p.isDefault)
-            ?? room.roomType.roomPrices?.[0];
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        {filteredRooms.map((room) => {
           const isSelected = room.id === selectedId;
+
           return (
             <button
               key={room.id}
@@ -114,20 +117,13 @@ function RoomGrid({
               className={cn(
                 "flex flex-col items-center rounded-lg border p-2 text-center text-xs transition-all",
                 "hover:border-primary/60 hover:bg-primary/5",
-                isSelected
-                  ? "border-primary bg-primary/10 ring-1 ring-primary"
-                  : "border-border"
+                isSelected ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border"
               )}
             >
               <span className="text-base font-bold leading-tight">{room.roomNumber}</span>
-              <span className="text-[10px] text-muted-foreground leading-tight truncate w-full">
+              <span className="w-full truncate text-[10px] leading-tight text-muted-foreground">
                 {room.roomType.name}
               </span>
-              {defaultPrice && (
-                <span className="mt-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                  {(defaultPrice.pricePerNight / 1000).toFixed(0)}k
-                </span>
-              )}
             </button>
           );
         })}
@@ -136,9 +132,16 @@ function RoomGrid({
   );
 }
 
-// ─── Main Form ────────────────────────────────────────────────────────────────
+type BookingFormProps = {
+  mode?: "create" | "edit";
+  bookingId?: string;
+  initialData?: BookingFormInitialData;
+};
 
-export function BookingForm() {
+const defaultCheckInDate = new Date();
+const defaultCheckOutDate = new Date(new Date().setDate(new Date().getDate() + 1));
+
+export function BookingForm({ mode = "create", bookingId, initialData }: BookingFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -151,14 +154,15 @@ export function BookingForm() {
       guestId: "",
       guestFullName: "",
       guestPhone: "",
-      guestIdType: "CCCD" as const,
+      guestIdNumber: "",
+      guestIdType: "CCCD",
       guestNationality: "Việt Nam",
       roomId: "",
-      checkInDate: new Date(),
-      checkOutDate: new Date(new Date().setDate(new Date().getDate() + 1)),
+      checkInDate: defaultCheckInDate,
+      checkOutDate: defaultCheckOutDate,
       roomRate: 0,
       depositAmount: 0,
-      source: "WALKIN" as const,
+      source: "WALKIN",
       specialRequests: "",
       internalNotes: "",
       bookingCode: "",
@@ -181,21 +185,45 @@ export function BookingForm() {
 
   useEffect(() => {
     async function fetchRooms() {
-      const res = await fetch("/api/rooms?status=AVAILABLE");
+      const res = await fetch("/api/rooms");
       const json = await res.json();
       setRooms(json.data || []);
     }
+
     fetchRooms();
   }, []);
 
   useEffect(() => {
-    if (initializedFromQuery.current) return;
+    if (!initialData) return;
+
+    form.reset({
+      guestId: "",
+      guestFullName: initialData.guest.fullName,
+      guestPhone: initialData.guest.phone || "",
+      guestIdNumber: initialData.guest.idNumber || "",
+      guestIdType: initialData.guest.idType === "DRIVER_LICENSE" ? "OTHER" : initialData.guest.idType,
+      guestNationality: initialData.guest.nationality || "Việt Nam",
+      roomId: initialData.roomId,
+      checkInDate: new Date(initialData.checkInDate),
+      checkOutDate: new Date(initialData.checkOutDate),
+      roomRate: Number(initialData.roomRate),
+      depositAmount: Number(initialData.depositAmount),
+      source: initialData.source,
+      specialRequests: initialData.specialRequests || "",
+      internalNotes: initialData.internalNotes || "",
+      bookingCode: initialData.bookingCode || "",
+    });
+  }, [form, initialData]);
+
+  useEffect(() => {
+    if (mode !== "create" || initializedFromQuery.current) return;
+
     const roomId = searchParams.get("roomId");
     const checkIn = searchParams.get("checkIn") || searchParams.get("date");
     const checkOut = searchParams.get("checkOut");
 
     if (roomId) form.setValue("roomId", roomId);
-    
+
     const parseDateParam = (value: string | null) => {
       if (!value) return null;
       const parsed = new Date(`${value}T00:00:00`);
@@ -211,25 +239,20 @@ export function BookingForm() {
     } else if (checkInDate) {
       form.setValue("checkOutDate", new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000));
     }
-    initializedFromQuery.current = true;
-  }, [form, searchParams]);
 
-  useEffect(() => {
-    if (watchRoomId) {
-      const selectedRoom = rooms.find((r) => r.id === watchRoomId);
-      if (selectedRoom && (selectedRoom.roomType.roomPrices?.length ?? 0) > 0) {
-        const prices = selectedRoom.roomType.roomPrices;
-        const defaultPrice = prices.find((p) => p.isDefault) ?? prices[0];
-        if (defaultPrice) form.setValue("roomRate", Number(defaultPrice.pricePerNight));
-      }
-    }
-  }, [watchRoomId, rooms, form]);
+    initializedFromQuery.current = true;
+  }, [form, mode, searchParams]);
+
+  const selectableRooms = useMemo(() => {
+    return rooms.filter((room) => room.status === "AVAILABLE" || room.id === watchRoomId || room.id === initialData?.roomId);
+  }, [initialData?.roomId, rooms, watchRoomId]);
 
   async function onSubmit(data: BookingFormValues) {
     if (numNights <= 0) {
       toast.error("Ngày trả phòng phải sau ngày nhận phòng");
       return;
     }
+
     setLoading(true);
     try {
       const payload = {
@@ -240,22 +263,23 @@ export function BookingForm() {
         numNights,
       };
 
-      const res = await fetch("/api/bookings", {
-        method: "POST",
+      const isEdit = mode === "edit" && bookingId;
+      const res = await fetch(isEdit ? `/api/bookings/${bookingId}` : "/api/bookings", {
+        method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
+      const json = await res.json();
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Không thể tạo booking");
+        throw new Error(json.error || (isEdit ? "Không thể cập nhật booking" : "Không thể tạo booking"));
       }
 
-      toast.success("Tạo booking thành công");
-      router.push("/bookings");
+      toast.success(isEdit ? "Đã cập nhật booking" : "Tạo booking thành công");
+      router.push(isEdit ? `/bookings/${bookingId}` : "/bookings");
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Lỗi hệ thống");
     } finally {
       setLoading(false);
     }
@@ -264,11 +288,11 @@ export function BookingForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
           <div className="space-y-8">
-            <div className="rounded-lg border p-5 space-y-4">
+            <div className="space-y-4 rounded-lg border p-5">
               <h3 className="text-base font-semibold">Thông tin khách hàng</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="guestFullName"
@@ -287,13 +311,10 @@ export function BookingForm() {
                     <FormItem>
                       <FormLabel>Số điện thoại</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="090..." 
-                          {...field} 
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, "");
-                            field.onChange(val);
-                          }}
+                        <Input
+                          placeholder="090..."
+                          {...field}
+                          onChange={(event) => field.onChange(event.target.value.replace(/\D/g, ""))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -324,17 +345,14 @@ export function BookingForm() {
                     <FormItem>
                       <FormLabel>Số giấy tờ</FormLabel>
                       <FormControl>
-                        <Input 
-                          {...field} 
-                          onChange={(e) => {
+                        <Input
+                          {...field}
+                          onChange={(event) => {
                             const type = form.getValues("guestIdType");
-                            let val = e.target.value;
-                            if (type === "CCCD") {
-                              val = val.replace(/\D/g, "");
-                            } else if (type === "PASSPORT") {
-                              val = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-                            }
-                            field.onChange(val);
+                            let value = event.target.value;
+                            if (type === "CCCD") value = value.replace(/\D/g, "");
+                            if (type === "PASSPORT") value = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                            field.onChange(value);
                           }}
                         />
                       </FormControl>
@@ -354,7 +372,7 @@ export function BookingForm() {
               </div>
             </div>
 
-            <div className="rounded-lg border p-5 space-y-4">
+            <div className="space-y-4 rounded-lg border p-5">
               <h3 className="text-base font-semibold">Thông tin đặt phòng</h3>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -369,12 +387,7 @@ export function BookingForm() {
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                          />
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
                         </PopoverContent>
                       </Popover>
                     </FormItem>
@@ -412,13 +425,14 @@ export function BookingForm() {
                   <FormItem>
                     <FormLabel>Chọn phòng (*)</FormLabel>
                     <FormControl>
-                      <RoomGrid rooms={rooms} selectedId={field.value} onSelect={(r) => field.onChange(r.id)} />
+                      <RoomGrid rooms={selectableRooms} selectedId={field.value} onSelect={(room) => field.onChange(room.id)} />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="bookingCode"
@@ -436,14 +450,11 @@ export function BookingForm() {
                     <FormItem>
                       <FormLabel>Giá mỗi đêm (VND)</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="0" 
-                          {...field} 
+                        <Input
+                          placeholder="0"
+                          {...field}
                           value={formatInputNumber(field.value)}
-                          onChange={(e) => {
-                            const numericValue = parseInputNumber(e.target.value);
-                            field.onChange(numericValue);
-                          }}
+                          onChange={(event) => field.onChange(parseInputNumber(event.target.value))}
                         />
                       </FormControl>
                     </FormItem>
@@ -472,9 +483,9 @@ export function BookingForm() {
               </div>
             </div>
 
-            <div className="rounded-lg border p-5 space-y-4">
+            <div className="space-y-4 rounded-lg border p-5">
               <h3 className="text-base font-semibold">Ghi chú</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="specialRequests"
@@ -500,12 +511,12 @@ export function BookingForm() {
           </div>
 
           <div className="space-y-4">
-            <div className="sticky top-20 rounded-lg border bg-card p-5 space-y-4 shadow-sm">
+            <div className="sticky top-20 space-y-4 rounded-lg border bg-card p-5 shadow-sm">
               <h3 className="text-base font-semibold">Tóm tắt giá</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Số đêm</span><span>{numNights} đêm</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Giá / đêm</span><span>{formatVND(watchRoomRate)}</span></div>
-                <div className="border-t pt-2 flex justify-between text-base font-semibold"><span>Tổng tiền phòng</span><span>{formatVND(totalAmount)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Tổng tiền phòng</span><span>{formatVND(totalAmount)}</span></div>
               </div>
 
               <FormField
@@ -515,27 +526,32 @@ export function BookingForm() {
                   <FormItem>
                     <FormLabel>Tiền đặt cọc (VND)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="0" 
-                        {...field} 
+                      <Input
+                        placeholder="0"
+                        {...field}
                         value={formatInputNumber(field.value)}
-                        onChange={(e) => {
-                          const numericValue = parseInputNumber(e.target.value);
-                          field.onChange(numericValue);
-                        }}
+                        onChange={(event) => field.onChange(parseInputNumber(event.target.value))}
                       />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              <div className="rounded-md bg-muted/50 px-3 py-2.5 space-y-1 text-sm font-bold border-t">
-                <div className="flex justify-between"><span>Còn lại</span><span className={remaining > 0 ? "text-orange-600" : "text-emerald-600"}>{formatVND(remaining)}</span></div>
+              <div className="space-y-1 rounded-md border-t bg-muted/50 px-3 py-2.5 text-sm font-bold">
+                <div className="flex justify-between">
+                  <span>Còn lại</span>
+                  <span className={remaining > 0 ? "text-orange-600" : "text-emerald-600"}>{formatVND(remaining)}</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
-                <Button type="submit" disabled={loading} className="w-full">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Xác nhận đặt phòng</Button>
-                <Button variant="outline" type="button" onClick={() => router.back()} className="w-full">Hủy</Button>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {mode === "edit" ? "Lưu thay đổi" : "Xác nhận đặt phòng"}
+                </Button>
+                <Button variant="outline" type="button" onClick={() => router.back()} className="w-full">
+                  Hủy
+                </Button>
               </div>
             </div>
           </div>

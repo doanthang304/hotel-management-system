@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkRoomAvailability } from "@/lib/booking-code";
 import { z } from "zod";
 
 const BookingUpdateSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "CHECKED_IN", "CHECKED_OUT", "CANCELLED", "NO_SHOW"]).optional(),
   roomId: z.string().uuid().optional(),
+  bookingCode: z.string().max(50).optional(),
   checkInDate: z.string().optional(),
   checkOutDate: z.string().optional(),
   numNights: z.number().int().min(1).optional(),
   roomRate: z.number().min(0).optional(),
   depositAmount: z.number().min(0).optional(),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).optional(),
   specialRequests: z.string().optional(),
   internalNotes: z.string().optional(),
+  guestFullName: z.string().min(1).optional(),
+  guestPhone: z.string().optional(),
+  guestIdNumber: z.string().optional(),
+  guestIdType: z.enum(["CCCD", "PASSPORT", "DRIVER_LICENSE", "OTHER"]).optional(),
+  guestNationality: z.string().optional(),
 });
 
 export async function GET(
@@ -27,9 +36,9 @@ export async function GET(
 
   try {
     const booking = await prisma.booking.findUnique({
-      where: { 
-        id: id,
-        hotelId: session.user.hotelId 
+      where: {
+        id,
+        hotelId: session.user.hotelId,
       },
       include: {
         room: { include: { roomType: true } },
@@ -37,12 +46,12 @@ export async function GET(
         creator: { select: { id: true, fullName: true } },
         bill: {
           include: {
-            payments: true
-          }
+            payments: true,
+          },
         },
         bookingServices: {
-          include: { service: true }
-        }
+          include: { service: true },
+        },
       },
     });
 
@@ -75,36 +84,81 @@ export async function PUT(
 
     const hotelId = session.user.hotelId;
     const existing = await prisma.booking.findUnique({
-      where: { id: id, hotelId }
+      where: { id, hotelId },
+      include: { guest: true },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Không tìm thấy booking" }, { status: 404 });
+      return NextResponse.json({ error: "KhĂ´ng tĂ¬m tháº¥y booking" }, { status: 404 });
     }
 
-    const updated = await prisma.booking.update({
-      where: { id: id },
-      data: parsed.data,
-      include: {
-        room: true,
-        guest: true
-      }
-    });
+    const nextCheckIn = parsed.data.checkInDate ? new Date(parsed.data.checkInDate) : existing.checkInDate;
+    const nextCheckOut = parsed.data.checkOutDate ? new Date(parsed.data.checkOutDate) : existing.checkOutDate;
+    const nextRoomId = parsed.data.roomId ?? existing.roomId;
 
-    // Audit Log
-    await prisma.auditLog.create({
-      data: {
-        hotelId,
-        userId: session.user.id,
-        entityType: "booking",
-        entityId: updated.id,
-        action: "update",
-        newValues: parsed.data,
-        oldValues: existing as any
-      }
-    });
+    if (nextCheckOut <= nextCheckIn) {
+      return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });
+    }
 
-    return NextResponse.json({ data: updated });
+    const roomAvailable = await checkRoomAvailability(nextRoomId, nextCheckIn, nextCheckOut, existing.id);
+    if (!roomAvailable) {
+      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
+    }
+
+    try {
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.guest.update({
+          where: { id: existing.guestId },
+          data: {
+            fullName: parsed.data.guestFullName,
+            phone: parsed.data.guestPhone,
+            idNumber: parsed.data.guestIdNumber,
+            idType: parsed.data.guestIdType,
+            nationality: parsed.data.guestNationality,
+          },
+        });
+
+        return tx.booking.update({
+          where: { id },
+          data: {
+            status: parsed.data.status,
+            roomId: parsed.data.roomId,
+            bookingCode: parsed.data.bookingCode?.trim() || undefined,
+            checkInDate: parsed.data.checkInDate ? nextCheckIn : undefined,
+            checkOutDate: parsed.data.checkOutDate ? nextCheckOut : undefined,
+            numNights: parsed.data.numNights,
+            roomRate: parsed.data.roomRate,
+            depositAmount: parsed.data.depositAmount,
+            source: parsed.data.source,
+            specialRequests: parsed.data.specialRequests,
+            internalNotes: parsed.data.internalNotes,
+          },
+          include: {
+            room: { include: { roomType: true } },
+            guest: true,
+          },
+        });
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          hotelId,
+          userId: session.user.id,
+          entityType: "booking",
+          entityId: updated.id,
+          action: "update",
+          newValues: parsed.data,
+          oldValues: existing as Prisma.InputJsonValue,
+        },
+      });
+
+      return NextResponse.json({ data: updated });
+    } catch (updateError) {
+      if (updateError instanceof Prisma.PrismaClientKnownRequestError && updateError.code === "P2002") {
+        return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
+      }
+      throw updateError;
+    }
   } catch (error) {
     console.error("PUT /api/bookings/[id] error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
@@ -123,7 +177,7 @@ export async function DELETE(
   try {
     const hotelId = session.user.hotelId;
     const existing = await prisma.booking.findUnique({
-      where: { id: id, hotelId }
+      where: { id, hotelId },
     });
 
     if (!existing) {
@@ -131,7 +185,7 @@ export async function DELETE(
     }
 
     await prisma.booking.delete({
-      where: { id: id }
+      where: { id },
     });
 
     return NextResponse.json({ message: "Đã xóa booking" });

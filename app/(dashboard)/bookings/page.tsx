@@ -3,23 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Plus,
   Search,
   MoreHorizontal,
   Eye,
+  Pencil,
   CheckCircle,
   LogOut,
   Loader2,
@@ -76,7 +69,7 @@ export default function BookingsPage() {
       const res = await fetch(`/api/bookings?search=${search}`);
       const json = await res.json();
       setBookings(json.data || []);
-    } catch (error) {
+    } catch {
       toast.error("Không thể tải danh sách booking");
     } finally {
       setLoading(false);
@@ -97,7 +90,7 @@ export default function BookingsPage() {
         const error = await res.json();
         toast.error(error.error || "Check-in thất bại");
       }
-    } catch (error) {
+    } catch {
       toast.error("Lỗi hệ thống");
     }
   };
@@ -112,7 +105,7 @@ export default function BookingsPage() {
         const error = await res.json();
         toast.error(error.error || "Check-out thất bại");
       }
-    } catch (error) {
+    } catch {
       toast.error("Lỗi hệ thống");
     }
   };
@@ -131,30 +124,29 @@ export default function BookingsPage() {
           <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Tìm theo mã, tên khách, số điện thoại..."
-            className="pl-8 min-h-[44px]"
+            className="min-h-[44px] pl-8"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
       </div>
 
-      {/* ── Mobile: Card list ── */}
-      <div className="md:hidden space-y-3">
+      <div className="space-y-3 md:hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
             <span className="text-sm">Đang tải...</span>
           </div>
         ) : bookings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+            <ClipboardList className="mb-2 h-10 w-10 opacity-40" />
             <p className="text-sm">Không tìm thấy booking nào.</p>
           </div>
         ) : (
           bookings.map((booking) => (
-            <div key={booking.id} className="rounded-lg border p-3 space-y-2 bg-card">
+            <div key={booking.id} className="space-y-2 rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm">{booking.bookingCode}</span>
+                <span className="text-sm font-semibold">{booking.bookingCode}</span>
                 <Badge variant="outline" className={statusVariants[booking.status]}>
                   {statusLabels[booking.status]}
                 </Badge>
@@ -167,20 +159,23 @@ export default function BookingsPage() {
                 <span>{format(new Date(booking.checkInDate), "dd/MM/yyyy")} → {format(new Date(booking.checkOutDate), "dd/MM/yyyy")}</span>
                 <span>{booking.numNights} đêm</span>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t">
-                <span className="font-semibold text-sm">{formatVND(booking.roomRate * booking.numNights)}</span>
-                <div className="flex gap-1">
+              <div className="flex items-center justify-between border-t pt-1">
+                <span className="text-sm font-semibold">{formatVND(booking.roomRate * booking.numNights)}</span>
+                <div className="flex flex-wrap gap-1">
                   <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
-                    <Eye className="h-3.5 w-3.5 mr-1" /> Xem
+                    <Eye className="mr-1 h-3.5 w-3.5" /> Xem
+                  </Button>
+                  <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}/edit`} />}>
+                    <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
                   </Button>
                   {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                     <Button size="sm" className="min-h-[36px]" onClick={() => handleCheckIn(booking.id)}>
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" /> Check-in
+                      <CheckCircle className="mr-1 h-3.5 w-3.5" /> Check-in
                     </Button>
                   )}
                   {booking.status === "CHECKED_IN" && (
                     <Button size="sm" variant="outline" className="min-h-[36px] border-(--status-maintenance) text-(--status-maintenance)" onClick={() => handleCheckOut(booking.id)}>
-                      <LogOut className="h-3.5 w-3.5 mr-1" /> Check-out
+                      <LogOut className="mr-1 h-3.5 w-3.5" /> Check-out
                     </Button>
                   )}
                 </div>
@@ -190,8 +185,7 @@ export default function BookingsPage() {
         )}
       </div>
 
-      {/* ── Desktop: Table ── */}
-      <div className="hidden md:block rounded-md border">
+      <div className="hidden rounded-md border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -231,9 +225,7 @@ export default function BookingsPage() {
                   <TableCell>
                     <div className="flex flex-col text-sm">
                       <span>{format(new Date(booking.checkInDate), "dd/MM/yyyy")}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {booking.numNights} đêm
-                      </span>
+                      <span className="text-xs text-muted-foreground">{booking.numNights} đêm</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -246,13 +238,16 @@ export default function BookingsPage() {
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger nativeButton={false} render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                      <DropdownMenuTrigger className={buttonVariants({ variant: "ghost", size: "icon", className: "h-8 w-8" })}>
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                         <DropdownMenuItem nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
                           <Eye className="mr-2 h-4 w-4" /> Chi tiết
+                        </DropdownMenuItem>
+                        <DropdownMenuItem nativeButton={false} render={<Link href={`/bookings/${booking.id}/edit`} />}>
+                          <Pencil className="mr-2 h-4 w-4" /> Sửa booking
                         </DropdownMenuItem>
                         {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                           <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>

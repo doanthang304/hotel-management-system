@@ -19,7 +19,8 @@ import {
   Receipt,
   Plus,
   Loader2,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,6 +175,9 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
           </Badge>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" nativeButton={false} render={<Link href={`/bookings/${id}/edit`} />} className="min-h-[44px]">
+            <Pencil className="h-4 w-4 mr-2" /> Sửa
+          </Button>
           <Button variant="outline" className="min-h-[44px]">
             <Printer className="h-4 w-4 mr-2" /> In phiếu
           </Button>
@@ -194,6 +198,9 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
               <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground font-bold">Thao tác nhanh</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col space-y-2">
+              <Button variant="outline" className="w-full justify-start min-h-[44px]" nativeButton={false} render={<Link href={`/bookings/${id}/edit`} />}>
+                <Pencil className="mr-2 h-4 w-4" /> Sửa thông tin
+              </Button>
               {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                 <Button className="w-full justify-start min-h-[48px] text-base" onClick={() => handleAction("checkin")}>
                   <CheckCircle className="mr-2 h-5 w-5" /> Thực hiện Check-in
