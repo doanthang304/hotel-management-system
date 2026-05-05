@@ -236,31 +236,49 @@ export default function BookingsPage() {
                   <TableCell className="text-right font-medium">
                     {formatVND(booking.roomRate * booking.numNights)}
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className={buttonVariants({ variant: "ghost", size: "icon", className: "h-8 w-8" })}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                        <DropdownMenuItem nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
-                          <Eye className="mr-2 h-4 w-4" /> Chi tiết
-                        </DropdownMenuItem>
-                        <DropdownMenuItem nativeButton={false} render={<Link href={`/bookings/${booking.id}/edit`} />}>
-                          <Pencil className="mr-2 h-4 w-4" /> Sửa booking
-                        </DropdownMenuItem>
-                        {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
-                          <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-(--status-available)" /> Check-in
-                          </DropdownMenuItem>
-                        )}
-                        {booking.status === "CHECKED_IN" && (
-                          <DropdownMenuItem onClick={() => handleCheckOut(booking.id)}>
-                            <LogOut className="mr-2 h-4 w-4 text-(--status-maintenance)" /> Check-out
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-2"
+                        nativeButton={false} 
+                        render={<Link href={`/bookings/${booking.id}`} />}
+                      >
+                        <Eye className="mr-1 h-3.5 w-3.5" /> Chi tiết
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-2"
+                        nativeButton={false} 
+                        render={<Link href={`/bookings/${booking.id}/edit`} />}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
+                      </Button>
+
+                      {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
+                        <Button 
+                          size="sm" 
+                          className="h-8 px-2 bg-emerald-600 hover:bg-emerald-700 text-white" 
+                          onClick={() => handleCheckIn(booking.id)}
+                        >
+                          <CheckCircle className="mr-1 h-3.5 w-3.5" /> Check-in
+                        </Button>
+                      )}
+
+                      {booking.status === "CHECKED_IN" && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 px-2 border-orange-500 text-orange-600 hover:bg-orange-50" 
+                          onClick={() => handleCheckOut(booking.id)}
+                        >
+                          <LogOut className="mr-1 h-3.5 w-3.5" /> Check-out
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

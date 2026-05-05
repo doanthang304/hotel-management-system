@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tiny HMS - Quản lý khách sạn",
+  title: "HMS - Hệ thống quản lý khách sạn",
   description: "Hệ thống quản lý khách sạn nhỏ gọn, hiệu quả",
 };
 

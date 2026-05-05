@@ -251,10 +251,10 @@ export default function HotelSetupPage() {
               <CardContent>
                 <form onSubmit={handleCreateRoom} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Danh sách phòng (*)</Label>
+                    <Label>Số phòng (*)</Label>
                     <Textarea
                       rows={6}
-                      placeholder={"VD:\n101\n102\n103"}
+                      placeholder={"VD: 101, 102, 103"}
                       value={roomNumbersInput}
                       onChange={(event) => setRoomNumbersInput(event.target.value)}
                       className="resize-none"

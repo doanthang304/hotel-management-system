@@ -89,7 +89,7 @@ export async function PUT(
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "KhĂ´ng tĂ¬m tháº¥y booking" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy booking" }, { status: 404 });
     }
 
     const nextCheckIn = parsed.data.checkInDate ? new Date(parsed.data.checkInDate) : existing.checkInDate;

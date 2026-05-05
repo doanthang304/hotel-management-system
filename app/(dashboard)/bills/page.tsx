@@ -127,7 +127,7 @@ export default function BillsPage() {
               <TableHead>Tổng tiền</TableHead>
               <TableHead>Còn nợ</TableHead>
               <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
+              <TableHead className="text-right">Xem</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

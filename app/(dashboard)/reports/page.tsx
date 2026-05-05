@@ -118,12 +118,12 @@ export default function ReportsPage() {
         const json = await res.json();
 
         if (!res.ok) {
-          throw new Error(json.error || "KhĂ´ng thá»ƒ táº£i bĂ¡o cĂ¡o");
+          throw new Error(json.error || "Không thể tải báo cáo");
         }
 
         setData(json.data as ReportResponse);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Lá»—i há»‡ thá»‘ng khi táº£i bĂ¡o cĂ¡o");
+        toast.error(error instanceof Error ? error.message : "Lỗi hệ thống khi tải báo cáo");
       } finally {
         setLoading(false);
       }

@@ -62,7 +62,7 @@ export default function RoomsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Không thể xóa phòng");
 
-      toast.success(json.message || `ÄĂ£ xĂ³a phĂ²ng ${room.roomNumber}`);
+      toast.success(json.message || `Đã xóa phòng ${room.roomNumber}`);
       setRooms((prev) => prev.filter((item) => item.id !== room.id));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");

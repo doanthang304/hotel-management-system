@@ -24,14 +24,14 @@ import { prisma } from "@/lib/prisma";
 type ReportPeriod = "week" | "month" | "year";
 
 const SOURCE_LABELS: Record<BookingSource, string> = {
-  WALKIN: "Trá»±c tiáº¿p",
+  WALKIN: "Trực tiếp",
   FACEBOOK_ZALO: "Facebook / Zalo",
   BOOKING_COM: "Booking.com",
   AGODA: "Agoda",
   AIRBNB: "Airbnb",
   DIRECT: "Direct",
-  PHONE: "Äiá»‡n thoáº¡i",
-  OTHER: "KhĂ¡c",
+  PHONE: "Điện thoại",
+  OTHER: "Khác",
 };
 
 function parseDateParam(value: string | null) {
@@ -274,6 +274,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("GET /api/reports/revenue error:", error);
-    return NextResponse.json({ error: "Lá»—i há»‡ thá»‘ng" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
   }
 }
