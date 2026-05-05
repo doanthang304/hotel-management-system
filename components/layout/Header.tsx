@@ -21,6 +21,7 @@ const pageTitles: Record<string, string> = {
   "/settings": "Cài đặt",
   "/onboarding": "Thiết lập",
   "/services": "Dịch vụ",
+  "/reports": "Báo cáo",
 };
 
 export function Header({ hotelName }: HeaderProps) {
