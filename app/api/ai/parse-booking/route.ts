@@ -38,7 +38,7 @@ const ParsedBookingSchema = z.object({
   roomTypeName: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   warnings: z.array(z.string()),
-
+  totalNetRevenue: z.number().nonnegative().nullable().optional(), // Chỉ giữ lại trường này, xóa các trường lặp
 });
 
 type ParsedBooking = z.infer<typeof ParsedBookingSchema>;
@@ -65,28 +65,38 @@ function buildPrompt(emailContent: string, roomCatalog: z.infer<typeof RequestSc
     : "[]";
 
   return [
-    "Bạn là hệ thống trích xuất dữ liệu booking cho phần mềm khách sạn.",
-    "Nhiệm vụ: đọc nội dung email booking do người dùng paste thủ công và trả về JSON duy nhất theo đúng schema.",
-    "Quy tắc:",
-    "- Chỉ trích xuất dữ liệu có trong email hoặc suy ra rất chắc chắn.",
-    "- Nếu không chắc, dùng null thay vì đoán.",
+    "Bạn là hệ thống trích xuất dữ liệu booking nghiệp vụ cao cho phần mềm khách sạn.",
+    "Nhiệm vụ: đọc nội dung email booking và trả về JSON duy nhất theo đúng schema.",
+    "Quy tắc CHUNG:",
+    "- Chỉ trích xuất dữ liệu có trong email hoặc suy ra rất chắc chắn. Nếu không chắc, dùng null.",
     "- source phải là một trong: BOOKING_COM, AGODA, AIRBNB, WALKIN, FACEBOOK_ZALO, OTHER.",
     "- checkInDate và checkOutDate phải ở định dạng YYYY-MM-DD.",
-    "- numNights, roomRate, depositAmount là số, không phải chuỗi; bỏ ký hiệu tiền tệ.",
     "- guestIdType chỉ dùng CCCD, PASSPORT hoặc OTHER.",
-    "- roomId chỉ được điền khi email khớp rõ ràng với một phòng trong roomCatalog. Nếu chỉ biết loại phòng nhưng chưa xác định chắc chắn phòng cụ thể thì roomId phải là null.",
-    "- warnings là mảng mô tả ngắn các trường còn thiếu, mơ hồ, hoặc cần người dùng kiểm tra lại.",
-    "- internalNotes có thể dùng để ghi chú ngắn từ email nếu hữu ích cho lễ tân.",
-    "- confidence là số từ 0 đến 1 phản ánh mức chắc chắn tổng thể.",
+    "- roomId chỉ được điền khi email khớp rõ ràng với một phòng trong roomCatalog. Nếu không, để null.",
+    "- warnings là mảng mô tả ngắn các trường còn thiếu, mơ hồ (ví dụ: 'Không thấy số điện thoại').",
+    "",
+    "Quy tắc QUAN TRỌNG VỀ TÀI CHÍNH (roomRate, depositAmount, numNights):",
+    "- Tất cả các số tiền phải bỏ ký hiệu tiền tệ, chỉ giữ lại số (VD: 2082500).",
+    "- Các nền tảng OTA (Agoda, Booking...) thường có 'Tổng giá phòng' (Gross) và 'Doanh thu thực nhận/Giá sau chiết khấu' (Net).",
+    "- Bạn CHỈ ĐƯỢC PHÉP sử dụng 'Doanh thu thực nhận' (Net Price) làm cơ sở tính toán nếu email có đề cập.",
+    "- Trường `roomRate` trong schema mang ý nghĩa là GIÁ CỦA 1 ĐÊM.",
+    "- NẾU email cho biết tổng tiền của nhiều đêm, BẠN PHẢI TỰ ĐỘNG LÀM PHÉP CHIA: Lấy 'Doanh thu thực nhận' (hoặc tổng tiền) CHIA CHO số đêm (numNights) để ra `roomRate`. (Ví dụ: Doanh thu thực nhận là 2.082.500 VND cho 2 đêm, bạn phải trả về roomRate là 1041250).",
     "",
     `roomCatalog: ${roomHints}`,
     "",
     "Nội dung email:",
+    "totalNetRevenue: Hãy lấy chính xác con số ở mục 'Doanh thu thực nhận' hoặc 'Giá sau chiết khấu'. Nếu không có, hãy lấy tổng giá.",
     emailContent,
   ].join("\n");
 }
 
 function normalizeParsedBooking(data: ParsedBooking): ParsedBooking {
+  let finalRoomRate = data.roomRate;
+  
+  if (data.totalNetRevenue && data.numNights && data.numNights > 0) {
+    finalRoomRate = Math.round(data.totalNetRevenue / data.numNights);
+  }
+
   return {
     ...data,
     bookingCode: data.bookingCode?.trim() || null,
@@ -100,6 +110,7 @@ function normalizeParsedBooking(data: ParsedBooking): ParsedBooking {
     roomNumber: data.roomNumber?.trim() || null,
     roomTypeName: data.roomTypeName?.trim() || null,
     warnings: data.warnings.map((item) => item.trim()).filter(Boolean),
+    roomRate: finalRoomRate,
   };
 }
 
@@ -147,6 +158,7 @@ export async function POST(req: NextRequest) {
             "roomTypeName",
             "confidence",
             "warnings",
+            "totalNetRevenue",
           ],
           properties: {
             source: { type: "string", enum: ["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"] },
@@ -171,6 +183,8 @@ export async function POST(req: NextRequest) {
               type: "array",
               items: { type: "string" },
             },
+            // Đã sửa lỗi: Thêm kiểu dữ liệu cho totalNetRevenue
+            totalNetRevenue: { type: ["number", "null"], minimum: 0 }, 
           },
         },
       },
