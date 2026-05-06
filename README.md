@@ -1,4 +1,4 @@
-# Tiny HMS
+#HMS
 
 Đây là một dự án nhỏ tôi tự code vì sở thích và để phục vụ mục đích cá nhân, học hỏi công nghệ mới, cũng như thử nghiệm quy trình quản lý một khách sạn quy mô nhỏ. Dự án không đặt nặng tính thương mại mà tập trung vào sự gọn nhẹ, tối ưu và trải nghiệm người dùng mượt mà.
 
@@ -22,12 +22,13 @@ Dự án có các tính năng cốt lõi sau:
 * **Quản lý đặt phòng (Bookings):** Tạo, cập nhật, hủy và chuyển trạng thái (Check-in/Check-out) dễ dàng.
 * **Hóa đơn & Dịch vụ:** Theo dõi công nợ, thanh toán và quản lý các dịch vụ đi kèm.
 * **Cài đặt & Thiết lập:** Tùy chỉnh thông tin khách sạn và bảo mật cá nhân.
+* **Đã cập nhật tính năng Báo cáo doanh thu
 
 ---
 
 #Còn phát triển:
-* **Tính năng thêm dịch vụ
-* **Báo cáo doanh thu theo tháng/quý/năm
+
+* **Báo cáo doanh thu theo tháng/quý/năm/ --- Đã update vào ngày 5/5/26
 * **Tích hợp AI tự động thêm booking bằng cách paste nội dung mail booking của khách hàng
 
 ## Cài đặt và Chạy thử
@@ -36,8 +37,8 @@ Clone my repo:
 
 1. **Clone repository:**
    ```bash
-   git clone https://github.com/your-username/tiny-hms.git
-   cd tiny-hms
+   git clone https://github.com/doanthang304/hotel-management-system
+   cd hotel-management-system
    ```
 
 2. **Cài đặt dependencies:**
