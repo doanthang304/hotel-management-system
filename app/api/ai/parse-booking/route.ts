@@ -38,7 +38,7 @@ const ParsedBookingSchema = z.object({
   roomTypeName: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   warnings: z.array(z.string()),
-  totalNetRevenue: z.number().nonnegative().nullable().optional(), // Chỉ giữ lại trường này, xóa các trường lặp
+  totalNetRevenue: z.number().nonnegative().nullable().optional(),  
 });
 
 type ParsedBooking = z.infer<typeof ParsedBookingSchema>;
@@ -183,7 +183,6 @@ export async function POST(req: NextRequest) {
               type: "array",
               items: { type: "string" },
             },
-            // Đã sửa lỗi: Thêm kiểu dữ liệu cho totalNetRevenue
             totalNetRevenue: { type: ["number", "null"], minimum: 0 }, 
           },
         },

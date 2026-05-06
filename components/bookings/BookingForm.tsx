@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { differenceInDays, format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, WandSparkles } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { cn, formatInputNumber, formatVND, parseInputNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { AiAutoFillModal } from "./AiAutoFillModal";
 
 const bookingFormSchema = z.object({
   roomId: z.string().min(1, "Vui lòng chọn phòng"),
@@ -168,8 +169,6 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
   const searchParams = useSearchParams();
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [loading, setLoading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [emailContent, setEmailContent] = useState("");
   const initializedFromQuery = useRef(false);
 
   const form = useForm<BookingFormValues>({
@@ -303,51 +302,6 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
     if (matchedRoom) form.setValue("roomId", matchedRoom.id, { shouldDirty: true });
   }
 
-  async function handleAutoFillFromEmail() {
-    if (mode !== "create") return;
-    if (emailContent.trim().length < 20) {
-      toast.error("Nội dung email quá ngắn để phân tích");
-      return;
-    }
-
-    setAiLoading(true);
-    try {
-      const roomCatalog = rooms.map((room) => ({
-        id: room.id,
-        roomNumber: room.roomNumber,
-        roomTypeName: room.roomType.name,
-        status: room.status,
-      }));
-
-      const res = await fetch("/api/ai/parse-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailContent,
-          roomCatalog,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || "Không thể phân tích email booking");
-      }
-
-      const data = json.data as ParsedBookingAutofill;
-      applyParsedBooking(data);
-
-      if (data.warnings.length > 0) {
-        toast.warning(data.warnings[0]);
-      } else {
-        toast.success("Đã tự động điền thông tin từ email");
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không thể phân tích email booking");
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
   async function onSubmit(data: BookingFormValues) {
     if (numNights <= 0) {
       toast.error("Ngày trả phòng phải sau ngày nhận phòng");
@@ -391,27 +345,10 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
           <div className="space-y-8">
+            
+            {/* Tích hợp component AiAutoFillModal siêu gọn gàng */}
             {mode === "create" && (
-              <div className="space-y-4 rounded-lg border p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold">Tự động tạo booking từ email</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Paste nội dung email từ Booking.com, Agoda hoặc Airbnb để AI tự điền form.
-                    </p>
-                  </div>
-                  <Button type="button" onClick={handleAutoFillFromEmail} disabled={aiLoading} className="shrink-0">
-                    {aiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
-                    Tự động điền
-                  </Button>
-                </div>
-                <Textarea
-                  value={emailContent}
-                  onChange={(event) => setEmailContent(event.target.value)}
-                  placeholder="Paste toàn bộ nội dung email xác nhận booking vào đây..."
-                  className="min-h-40 resize-y"
-                />
-              </div>
+              <AiAutoFillModal rooms={rooms} onSuccess={applyParsedBooking} />
             )}
 
             <div className="space-y-4 rounded-lg border p-5">
