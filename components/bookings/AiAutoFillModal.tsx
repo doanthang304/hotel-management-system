@@ -129,8 +129,6 @@ export function AiAutoFillModal({ rooms, onSuccess }: AiAutoFillModalProps) {
               value={emailContent}
               onChange={(event) => setEmailContent(event.target.value)}
               placeholder="Paste nội dung email..."
-              
-              h-48
               className="h-48={true} resize-none overflow-y-auto text-sm sm:h-[250px] [field-sizing:fixed]"
             />
           </div>

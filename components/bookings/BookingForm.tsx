@@ -19,7 +19,8 @@ import { toast } from "sonner";
 import { AiAutoFillModal } from "./AiAutoFillModal";
 
 const bookingFormSchema = z.object({
-  roomId: z.string().min(1, "Vui lòng chọn phòng"),
+  roomId: z.string().optional(),
+  roomIds: z.array(z.string()).default([]),
   guestId: z.string().optional(),
   guestFullName: z.string().min(2, "Họ tên tối thiểu 2 ký tự"),
   guestPhone: z.string().optional(),
@@ -91,11 +92,15 @@ type ParsedBookingAutofill = {
 function RoomGrid({
   rooms,
   selectedId,
+  selectedIds = [],
   onSelect,
+  isGroup = false,
 }: {
   rooms: RoomOption[];
-  selectedId: string;
-  onSelect: (room: RoomOption) => void;
+  selectedId?: string;
+  selectedIds?: string[];
+  onSelect: (roomId: string) => void;
+  isGroup?: boolean;
 }) {
   const [filterType, setFilterType] = useState<string>("all");
   const types = Array.from(new Set(rooms.map((room) => room.roomType.name)));
@@ -130,13 +135,13 @@ function RoomGrid({
       </div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {filteredRooms.map((room) => {
-          const isSelected = room.id === selectedId;
+          const isSelected = isGroup ? selectedIds.includes(room.id) : room.id === selectedId;
 
           return (
             <button
               key={room.id}
               type="button"
-              onClick={() => onSelect(room)}
+              onClick={() => onSelect(room.id)}
               className={cn(
                 "flex flex-col items-center rounded-lg border p-2 text-center text-xs transition-all",
                 "hover:border-primary/60 hover:bg-primary/5",
@@ -156,7 +161,7 @@ function RoomGrid({
 }
 
 type BookingFormProps = {
-  mode?: "create" | "edit";
+  mode?: "create" | "edit" | "group";
   bookingId?: string;
   initialData?: BookingFormInitialData;
 };
@@ -182,7 +187,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
   const [loading, setLoading] = useState(false);
   const initializedFromQuery = useRef(false);
 
-  const form = useForm<BookingFormValues>({
+  const form = useForm({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       guestId: "",
@@ -192,6 +197,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       guestIdType: "CCCD",
       guestNationality: "Việt Nam",
       roomId: "",
+      roomIds: [],
       checkInDate: defaultCheckInDate,
       checkOutDate: defaultCheckOutDate,
       roomRate: 0,
@@ -206,6 +212,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
   const watchCheckIn = form.watch("checkInDate");
   const watchCheckOut = form.watch("checkOutDate");
   const watchRoomId = form.watch("roomId");
+  const watchRoomIds = form.watch("roomIds") || [];
   const watchRoomRate = form.watch("roomRate");
   const watchDeposit = form.watch("depositAmount");
 
@@ -214,7 +221,8 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       ? differenceInDays(watchCheckOut, watchCheckIn)
       : 0;
 
-  const totalAmount = numNights * watchRoomRate;
+  const roomCount = mode === "group" ? watchRoomIds.length : 1;
+  const totalAmount = numNights * watchRoomRate * roomCount;
   const remaining = Math.max(0, totalAmount - (watchDeposit ?? 0));
 
   useEffect(() => {
@@ -238,6 +246,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       guestIdType: initialData.guest.idType === "DRIVER_LICENSE" ? "OTHER" : initialData.guest.idType,
       guestNationality: initialData.guest.nationality || "Việt Nam",
       roomId: initialData.roomId,
+      roomIds: [],
       checkInDate: parseApiDate(initialData.checkInDate),
       checkOutDate: parseApiDate(initialData.checkOutDate),
       roomRate: Number(initialData.roomRate),
@@ -278,8 +287,10 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
   }, [form, mode, searchParams]);
 
   const selectableRooms = useMemo(() => {
-    return rooms.filter((room) => room.status === "AVAILABLE" || room.id === watchRoomId || room.id === initialData?.roomId);
-  }, [initialData?.roomId, rooms, watchRoomId]);
+    return rooms.filter(
+      (room) => room.status === "AVAILABLE" || room.id === watchRoomId || room.id === initialData?.roomId || watchRoomIds.includes(room.id)
+    );
+  }, [initialData?.roomId, rooms, watchRoomId, watchRoomIds]);
 
   function parseDateInput(value: string | null) {
     if (!value) return null;
@@ -319,18 +330,49 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       return;
     }
 
+    if (mode === "group" && (!data.roomIds || data.roomIds.length < 2)) {
+      toast.error("Vui lòng chọn ít nhất 2 phòng cho đặt phòng đoàn");
+      return;
+    }
+
+    if (mode !== "group" && !data.roomId) {
+      toast.error("Vui lòng chọn phòng");
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = {
-        ...data,
-        guestId: data.guestId || undefined,
-        checkInDate: toDateOnlyString(data.checkInDate),
-        checkOutDate: toDateOnlyString(data.checkOutDate),
-        numNights,
-      };
-
       const isEdit = mode === "edit" && bookingId;
-      const res = await fetch(isEdit ? `/api/bookings/${bookingId}` : "/api/bookings", {
+      const endpoint = mode === "group" 
+        ? "/api/bookings/group" 
+        : (isEdit ? `/api/bookings/${bookingId}` : "/api/bookings");
+
+      const payload = mode === "group" 
+        ? {
+            roomIds: data.roomIds,
+            guestFullName: data.guestFullName,
+            guestPhone: data.guestPhone,
+            guestIdNumber: data.guestIdNumber,
+            guestIdType: data.guestIdType,
+            guestNationality: data.guestNationality,
+            checkInDate: toDateOnlyString(data.checkInDate),
+            checkOutDate: toDateOnlyString(data.checkOutDate),
+            numNights,
+            roomRate: data.roomRate,
+            depositAmount: data.depositAmount,
+            source: data.source,
+            specialRequests: data.specialRequests,
+            internalNotes: data.internalNotes,
+          }
+        : {
+            ...data,
+            guestId: data.guestId || undefined,
+            checkInDate: toDateOnlyString(data.checkInDate),
+            checkOutDate: toDateOnlyString(data.checkOutDate),
+            numNights,
+          };
+
+      const res = await fetch(endpoint, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -341,7 +383,11 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
         throw new Error(json.error || (isEdit ? "Không thể cập nhật booking" : "Không thể tạo booking"));
       }
 
-      toast.success(isEdit ? "Đã cập nhật booking" : "Tạo booking thành công");
+      toast.success(
+        mode === "group" 
+          ? `Đã tạo đoàn ${json.groupCode} thành công!` 
+          : (isEdit ? "Đã cập nhật booking" : "Tạo booking thành công")
+      );
       router.push(isEdit ? `/bookings/${bookingId}` : "/bookings");
       router.refresh();
     } catch (error) {
@@ -357,16 +403,15 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
           <div className="space-y-8">
             
-            {/* Tích hợp component AiAutoFillModal siêu gọn gàng */}
             {mode === "create" && (
               <AiAutoFillModal rooms={rooms} onSuccess={applyParsedBooking} />
             )}
 
             <div className="space-y-4 rounded-lg border p-5">
-              <h3 className="text-base font-semibold">Thông tin khách hàng</h3>
+              <h3 className="text-base font-semibold">Thông tin khách hàng {mode === "group" && "(Đại diện đoàn)"}</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="guestFullName"
                   render={({ field }) => (
                     <FormItem>
@@ -377,7 +422,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="guestPhone"
                   render={({ field }) => (
                     <FormItem>
@@ -394,7 +439,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="guestIdType"
                   render={({ field }) => (
                     <FormItem>
@@ -411,7 +456,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="guestIdNumber"
                   render={({ field }) => (
                     <FormItem>
@@ -432,7 +477,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="guestNationality"
                   render={({ field }) => (
                     <FormItem>
@@ -448,7 +493,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               <h3 className="text-base font-semibold">Thông tin đặt phòng</h3>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="checkInDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
@@ -466,7 +511,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="checkOutDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
@@ -491,13 +536,31 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               </div>
 
               <FormField
-                control={form.control}
-                name="roomId"
+                control={form.control as any}
+                name={mode === "group" ? "roomIds" : "roomId"}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Chọn phòng (*)</FormLabel>
+                    <FormLabel>
+                      Chọn phòng (*) {mode === "group" && `(Đã chọn ${watchRoomIds.length} phòng)`}
+                    </FormLabel>
                     <FormControl>
-                      <RoomGrid rooms={selectableRooms} selectedId={field.value} onSelect={(room) => field.onChange(room.id)} />
+                      <RoomGrid
+                        rooms={selectableRooms}
+                        selectedId={mode !== "group" ? (field.value as string) : undefined}
+                        selectedIds={mode === "group" ? (field.value as string[]) : undefined}
+                        isGroup={mode === "group"}
+                        onSelect={(roomId) => {
+                          if (mode === "group") {
+                            const current = (field.value as string[]) || [];
+                            const updated = current.includes(roomId)
+                              ? current.filter((id) => id !== roomId)
+                              : [...current, roomId];
+                            field.onChange(updated);
+                          } else {
+                            field.onChange(roomId);
+                          }
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -505,22 +568,24 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               />
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {mode !== "group" && (
+                  <FormField
+                    control={form.control as any}
+                    name="bookingCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mã Booking</FormLabel>
+                        <FormControl><Input placeholder="VD: BCOM-123456" {...field} /></FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
-                  control={form.control}
-                  name="bookingCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mã Booking</FormLabel>
-                      <FormControl><Input placeholder="VD: BCOM-123456" {...field} /></FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="roomRate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Giá mỗi đêm (VND)</FormLabel>
+                      <FormLabel>Giá mỗi đêm (VND) {mode === "group" && "/ Phòng"}</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="0"
@@ -533,7 +598,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="source"
                   render={({ field }) => (
                     <FormItem>
@@ -560,7 +625,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               <h3 className="text-base font-semibold">Ghi chú</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="specialRequests"
                   render={({ field }) => (
                     <FormItem>
@@ -570,7 +635,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="internalNotes"
                   render={({ field }) => (
                     <FormItem>
@@ -588,16 +653,19 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               <h3 className="text-base font-semibold">Tóm tắt giá</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Số đêm</span><span>{numNights} đêm</span></div>
+                {mode === "group" && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Số phòng</span><span>{roomCount} phòng</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Giá / đêm</span><span>{formatVND(watchRoomRate)}</span></div>
                 <div className="flex justify-between border-t pt-2 text-base font-semibold"><span>Tổng tiền phòng</span><span>{formatVND(totalAmount)}</span></div>
               </div>
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="depositAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tiền đặt cọc (VND)</FormLabel>
+                    <FormLabel>Tiền đặt cọc (VND) {mode === "group" && "(Tổng đoàn)"}</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="0"
@@ -620,7 +688,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
               <div className="flex flex-col gap-2 pt-2">
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {mode === "edit" ? "Lưu thay đổi" : "Xác nhận đặt phòng"}
+                  {mode === "edit" ? "Lưu thay đổi" : mode === "group" ? "Xác nhận đặt phòng đoàn" : "Xác nhận đặt phòng"}
                 </Button>
                 <Button variant="outline" type="button" onClick={() => router.back()} className="w-full">
                   Hủy
