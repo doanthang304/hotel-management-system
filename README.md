@@ -22,7 +22,8 @@ Dự án có các tính năng cốt lõi sau:
 * **Quản lý đặt phòng (Bookings):** Tạo, cập nhật, hủy và chuyển trạng thái (Check-in/Check-out) dễ dàng.
 * **Hóa đơn & Dịch vụ:** Theo dõi công nợ, thanh toán và quản lý các dịch vụ đi kèm.
 * **Cài đặt & Thiết lập:** Tùy chỉnh thông tin khách sạn và bảo mật cá nhân.
-* **Đã cập nhật tính năng Báo cáo doanh thu
+* * cập nhật xong tính năng Báo cáo doanh thu
+  * Cập nhật xong tính năng tự động điền booking.
 
 ---
 
