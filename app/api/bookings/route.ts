@@ -6,6 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { generateBookingCode, checkRoomAvailability } from "@/lib/booking-code";
 import { z } from "zod";
 
+function parseBookingDate(value: string) {
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 const BookingCreateSchema = z.object({
   roomId: z.string().uuid(),
   guestId: z.string().uuid().optional(),
@@ -96,8 +107,12 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    const checkIn = new Date(data.checkInDate);
-    const checkOut = new Date(data.checkOutDate);
+    const checkIn = parseBookingDate(data.checkInDate);
+    const checkOut = parseBookingDate(data.checkOutDate);
+
+    if (!checkIn || !checkOut) {
+      return NextResponse.json({ error: "Ngày booking không hợp lệ" }, { status: 400 });
+    }
 
     if (checkOut <= checkIn) {
       return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });

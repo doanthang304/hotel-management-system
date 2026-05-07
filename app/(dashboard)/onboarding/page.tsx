@@ -47,6 +47,7 @@ export default function HotelSetupPage() {
   const [rTypeId, setRTypeId] = useState("");
   const [loadingR, setLoadingR] = useState(false);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const [deletingRTypeId, setDeletingRTypeId] = useState<string | null>(null);
 
   const parsedRoomNumbers = useMemo(() => parseRoomNumbers(roomNumbersInput), [roomNumbersInput]);
 
@@ -99,6 +100,31 @@ export default function HotelSetupPage() {
       toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     } finally {
       setLoadingRt(false);
+    }
+  };
+
+  const handleDeleteRoomType = async (roomType: RoomType) => {
+    // Kiểm tra nhanh ở frontend (Backend cũng đã chặn việc này)
+    if (roomType._count?.rooms && roomType._count.rooms > 0) {
+      return toast.error("Không thể xóa loại phòng đang có phòng sử dụng");
+    }
+
+    if (!confirm(`Bạn có chắc chắn muốn xóa hạng phòng ${roomType.name}?`)) return;
+
+    setDeletingRTypeId(roomType.id);
+    try {
+      const res = await fetch(`/api/room-types/${roomType.id}`, { method: "DELETE" });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(data.message || `Đã xóa hạng phòng ${roomType.name}`);
+      // Xóa khỏi danh sách hiển thị
+      setRoomTypes((prev) => prev.filter((item) => item.id !== roomType.id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa loại phòng");
+    } finally {
+      setDeletingRTypeId(null);
     }
   };
 
@@ -216,24 +242,42 @@ export default function HotelSetupPage() {
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead className="border-b bg-slate-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
-                          <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
-                          <th className="px-4 py-3 text-center font-medium">Số phòng</th>
+                  <table className="w-full text-sm">
+                    <thead className="border-b bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium">Tên loại phòng</th>
+                        <th className="px-4 py-3 text-center font-medium">Sức chứa</th>
+                        <th className="px-4 py-3 text-center font-medium">Số phòng</th>
+                        {/* Thêm cột Thao tác */}
+                        <th className="px-4 py-3 text-right font-medium w-16">Thao tác</th> 
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {roomTypes.map((roomType) => (
+                        <tr key={roomType.id} className="transition-colors hover:bg-slate-50">
+                          <td className="px-4 py-3 font-medium">{roomType.name}</td>
+                          <td className="px-4 py-3 text-center">{roomType.maxOccupancy} khách</td>
+                          <td className="px-4 py-3 text-center">{roomType._count?.rooms || 0}</td>
+                          {/* Thêm nút Xóa */}
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                              disabled={deletingRTypeId === roomType.id}
+                              onClick={() => handleDeleteRoomType(roomType)}
+                            >
+                              {deletingRTypeId === roomType.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {roomTypes.map((roomType) => (
-                          <tr key={roomType.id} className="transition-colors hover:bg-slate-50">
-                            <td className="px-4 py-3 font-medium">{roomType.name}</td>
-                            <td className="px-4 py-3 text-center">{roomType.maxOccupancy} khách</td>
-                            <td className="px-4 py-3 text-center">{roomType._count?.rooms || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                      ))}
+                    </tbody>
+                  </table>
                   </div>
                 )}
               </CardContent>

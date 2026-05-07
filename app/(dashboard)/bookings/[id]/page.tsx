@@ -62,7 +62,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
 
   const fetchBooking = async () => {
     try {
-      const res = await fetch(`/api/bookings/${id}`);
+      const res = await fetch(`/api/bookings/${id}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setBooking(json.data as BookingWithRelations);

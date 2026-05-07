@@ -20,7 +20,7 @@ export default function EditBookingPage({ params }: EditBookingPageProps) {
   useEffect(() => {
     async function fetchBooking() {
       try {
-        const res = await fetch(`/api/bookings/${id}`);
+        const res = await fetch(`/api/bookings/${id}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "Không thể tải booking");
         setBooking(json.data);

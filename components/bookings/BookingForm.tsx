@@ -164,6 +164,17 @@ type BookingFormProps = {
 const defaultCheckInDate = new Date();
 const defaultCheckOutDate = new Date(new Date().setDate(new Date().getDate() + 1));
 
+function parseApiDate(value: string) {
+  const datePart = value.split("T")[0];
+  const [year, month, day] = datePart.split("-").map(Number);
+  if (!year || !month || !day) return new Date(value);
+  return new Date(year, month - 1, day);
+}
+
+function toDateOnlyString(date: Date) {
+  return format(date, "yyyy-MM-dd");
+}
+
 export function BookingForm({ mode = "create", bookingId, initialData }: BookingFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -208,7 +219,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
 
   useEffect(() => {
     async function fetchRooms() {
-      const res = await fetch("/api/rooms");
+      const res = await fetch("/api/rooms", { cache: "no-store" });
       const json = await res.json();
       setRooms(json.data || []);
     }
@@ -227,8 +238,8 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       guestIdType: initialData.guest.idType === "DRIVER_LICENSE" ? "OTHER" : initialData.guest.idType,
       guestNationality: initialData.guest.nationality || "Việt Nam",
       roomId: initialData.roomId,
-      checkInDate: new Date(initialData.checkInDate),
-      checkOutDate: new Date(initialData.checkOutDate),
+      checkInDate: parseApiDate(initialData.checkInDate),
+      checkOutDate: parseApiDate(initialData.checkOutDate),
       roomRate: Number(initialData.roomRate),
       depositAmount: Number(initialData.depositAmount),
       source: initialData.source,
@@ -313,8 +324,8 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
       const payload = {
         ...data,
         guestId: data.guestId || undefined,
-        checkInDate: data.checkInDate.toISOString(),
-        checkOutDate: data.checkOutDate.toISOString(),
+        checkInDate: toDateOnlyString(data.checkInDate),
+        checkOutDate: toDateOnlyString(data.checkOutDate),
         numNights,
       };
 

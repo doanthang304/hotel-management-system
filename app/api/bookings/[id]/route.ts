@@ -6,6 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { checkRoomAvailability } from "@/lib/booking-code";
 import { z } from "zod";
 
+function parseBookingDate(value: string) {
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 const BookingUpdateSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "CHECKED_IN", "CHECKED_OUT", "CANCELLED", "NO_SHOW"]).optional(),
   roomId: z.string().uuid().optional(),
@@ -92,8 +103,14 @@ export async function PUT(
       return NextResponse.json({ error: "Không tìm thấy booking" }, { status: 404 });
     }
 
-    const nextCheckIn = parsed.data.checkInDate ? new Date(parsed.data.checkInDate) : existing.checkInDate;
-    const nextCheckOut = parsed.data.checkOutDate ? new Date(parsed.data.checkOutDate) : existing.checkOutDate;
+    const parsedCheckIn = parsed.data.checkInDate ? parseBookingDate(parsed.data.checkInDate) : null;
+    const parsedCheckOut = parsed.data.checkOutDate ? parseBookingDate(parsed.data.checkOutDate) : null;
+    if ((parsed.data.checkInDate && !parsedCheckIn) || (parsed.data.checkOutDate && !parsedCheckOut)) {
+      return NextResponse.json({ error: "Ngày booking không hợp lệ" }, { status: 400 });
+    }
+
+    const nextCheckIn = parsedCheckIn ?? existing.checkInDate;
+    const nextCheckOut = parsedCheckOut ?? existing.checkOutDate;
     const nextRoomId = parsed.data.roomId ?? existing.roomId;
 
     if (nextCheckOut <= nextCheckIn) {
