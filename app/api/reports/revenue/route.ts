@@ -31,6 +31,7 @@ const SOURCE_LABELS: Record<BookingSource, string> = {
   AIRBNB: "Airbnb",
   DIRECT: "Direct",
   PHONE: "Điện thoại",
+  INTERNAL_OTA: "Nội bộ/OTA",
   OTHER: "Khác",
 };
 

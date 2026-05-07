@@ -30,7 +30,7 @@ const bookingFormSchema = z.object({
   checkOutDate: z.instanceof(Date, { message: "Vui lòng chọn ngày trả phòng" }),
   roomRate: z.number().min(0, "Giá phòng không hợp lệ"),
   depositAmount: z.number().min(0),
-  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "INTERNAL_OTA", "OTHER"]),
   specialRequests: z.string().optional(),
   internalNotes: z.string().optional(),
   bookingCode: z.string().optional(),
@@ -546,6 +546,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
                           <SelectItem value="BOOKING_COM">Booking.com</SelectItem>
                           <SelectItem value="AGODA">Agoda</SelectItem>
                           <SelectItem value="AIRBNB">Airbnb</SelectItem>
+                          <SelectItem value="INTERNAL_OTA">Nội bộ/OTA</SelectItem>
                           <SelectItem value="OTHER">Khác</SelectItem>
                         </SelectContent>
                       </Select>

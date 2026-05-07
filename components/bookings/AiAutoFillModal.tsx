@@ -21,7 +21,7 @@ type RoomCatalogItem = {
 };
 
 type AiParsedBooking = {
-  source: "WALKIN" | "FACEBOOK_ZALO" | "BOOKING_COM" | "AGODA" | "AIRBNB" | "OTHER";
+  source: "WALKIN" | "FACEBOOK_ZALO" | "BOOKING_COM" | "AGODA" | "AIRBNB" | "INTERNAL_OTA" | "OTHER";
   bookingCode: string | null;
   guestFullName: string | null;
   guestPhone: string | null;

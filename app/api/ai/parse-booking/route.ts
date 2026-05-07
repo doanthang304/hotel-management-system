@@ -19,7 +19,7 @@ const RequestSchema = z.object({
 });
 
 const ParsedBookingSchema = z.object({
-  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).default("OTHER"),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "INTERNAL_OTA", "OTHER"]).default("OTHER"),
   bookingCode: z.string().nullable(),
   guestFullName: z.string().nullable(),
   guestPhone: z.string().nullable(),
@@ -69,7 +69,7 @@ function buildPrompt(emailContent: string, roomCatalog: z.infer<typeof RequestSc
     "Nhiệm vụ: đọc nội dung email booking và trả về JSON duy nhất theo đúng schema.",
     "Quy tắc CHUNG:",
     "- Chỉ trích xuất dữ liệu có trong email hoặc suy ra rất chắc chắn. Nếu không chắc, dùng null.",
-    "- source phải là một trong: BOOKING_COM, AGODA, AIRBNB, WALKIN, FACEBOOK_ZALO, OTHER.",
+    "- source phải là một trong: BOOKING_COM, AGODA, AIRBNB, WALKIN, FACEBOOK_ZALO, INTERNAL_OTA, OTHER.",
     "- checkInDate và checkOutDate phải ở định dạng YYYY-MM-DD.",
     "- guestIdType chỉ dùng CCCD, PASSPORT hoặc OTHER.",
     "- roomId chỉ được điền khi email khớp rõ ràng với một phòng trong roomCatalog. Nếu không, để null.",
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
             "totalNetRevenue",
           ],
           properties: {
-            source: { type: "string", enum: ["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"] },
+            source: { type: "string", enum: ["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "INTERNAL_OTA", "OTHER"] },
             bookingCode: { type: ["string", "null"] },
             guestFullName: { type: ["string", "null"] },
             guestPhone: { type: ["string", "null"] },

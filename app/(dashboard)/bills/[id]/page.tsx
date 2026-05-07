@@ -99,7 +99,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
           </Button>
           
           <Dialog open={showConfirmPayment} onOpenChange={setShowConfirmPayment}>
-            <DialogTrigger render={
+            <DialogTrigger nativeButton={true} render={
               <Button disabled={bill.status === "SETTLED"} className="min-h-[44px]">
                 <CreditCard className="h-4 w-4 mr-2" /> Thu tiền
               </Button>
@@ -112,7 +112,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex gap-2">
-                <DialogClose render={<Button variant="outline" disabled={paymentLoading} />}>
+                <DialogClose nativeButton={true} render={<Button variant="outline" disabled={paymentLoading} />}>
                   Hủy
                 </DialogClose>
                 <Button onClick={handleConfirmPayment} disabled={paymentLoading}>

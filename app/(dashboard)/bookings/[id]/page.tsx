@@ -20,7 +20,9 @@ import {
   Plus,
   Loader2,
   Trash2,
-  Pencil
+  Pencil,
+  UserX,
+  Undo2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,6 +160,22 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleDeleteBooking = async () => {
+    if (!confirm("Bạn có chắc chắn muốn XÓA VĨNH VIỄN booking này? Thao tác này không thể hoàn tác.")) return;
+    try {
+      const res = await fetch(`/api/bookings/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Đã xóa booking");
+        router.push("/bookings");
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Không thể xóa booking");
+      }
+    } catch {
+      toast.error("Lỗi hệ thống");
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-muted-foreground">Đang tải...</div>;
   if (!booking) return null;
 
@@ -206,9 +224,27 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                   <CheckCircle className="mr-2 h-5 w-5" /> Thực hiện Check-in
                 </Button>
               )}
+              {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start min-h-[44px] text-red-600 border-red-500/20 hover:bg-red-50 hover:text-red-700" 
+                onClick={() => handleAction("noshow")}
+              >
+                <UserX className="mr-2 h-4 w-4" /> Khách No-Show
+              </Button>
+              )}
               {booking.status === "CHECKED_IN" && (
                 <Button className="w-full justify-start min-h-[48px] text-base bg-orange-600 hover:bg-orange-700" onClick={() => handleAction("checkout")}>
                   <LogOut className="mr-2 h-5 w-5" /> Thực hiện Check-out
+                </Button>
+              )}
+              {booking.status === "CHECKED_IN" && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start min-h-[44px] border-amber-500/20 text-amber-600 hover:bg-amber-50"
+                  onClick={() => handleAction("undo-checkin")}
+                >
+                  <Undo2 className="mr-2 h-4 w-4" /> Hoàn tác Check-in
                 </Button>
               )}
               {(booking.status === "PENDING" || booking.status === "CONFIRMED") && (
@@ -222,7 +258,16 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                   className="w-full justify-start min-h-[44px] border-orange-500/20 text-orange-600 hover:bg-orange-50"
                   onClick={() => handleAction("undo-checkout")}
                 >
-                  <CheckCircle className="mr-2 h-4 w-4" /> Hoàn tác Check-out
+                  <Undo2 className="mr-2 h-4 w-4" /> Hoàn tác Check-out
+                </Button>
+              )}
+              {(booking.status === "PENDING" || booking.status === "CANCELLED" || booking.status === "NO_SHOW") && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start min-h-[44px] text-red-600 border-red-500/30 hover:bg-red-50 hover:text-red-700"
+                  onClick={handleDeleteBooking}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Xóa booking
                 </Button>
               )}
             </CardContent>

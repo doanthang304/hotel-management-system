@@ -283,6 +283,7 @@ enum BookingSource {
   AIRBNB
   DIRECT
   PHONE
+  INTERNAL_OTA
   OTHER
 }
 

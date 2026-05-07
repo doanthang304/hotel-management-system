@@ -26,7 +26,7 @@ const BookingUpdateSchema = z.object({
   numNights: z.number().int().min(1).optional(),
   roomRate: z.number().min(0).optional(),
   depositAmount: z.number().min(0).optional(),
-  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "OTHER"]).optional(),
+  source: z.enum(["WALKIN", "FACEBOOK_ZALO", "BOOKING_COM", "AGODA", "AIRBNB", "INTERNAL_OTA", "OTHER"]).optional(),
   specialRequests: z.string().optional(),
   internalNotes: z.string().optional(),
   guestFullName: z.string().min(1).optional(),
