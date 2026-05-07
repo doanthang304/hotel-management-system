@@ -118,15 +118,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });
     }
 
-    // Check availability
-    const available = await checkRoomAvailability(data.roomId, checkIn, checkOut);
-    if (!available) {
-      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
-    }
-
     const hotelId = session.user.hotelId;
 
-    // Get or create guest
+    // Get or create guest (outside transaction — not affected by serialization conflicts)
     let guestId = data.guestId;
     if (!guestId) {
       if (!data.guestFullName) {
@@ -147,15 +141,22 @@ export async function POST(req: NextRequest) {
     }
 
     let bookingCode = data.bookingCode?.trim() || "";
-    let booking: Awaited<ReturnType<typeof prisma.booking.create>> | null = null;
 
-    if (bookingCode) {
-      try {
-        booking = await prisma.booking.create({
+    // Wrap availability check + create inside a serializable transaction
+    // to prevent double-booking race conditions
+    const booking = await prisma.$transaction(async (tx) => {
+      // Re-check availability inside transaction
+      const available = await checkRoomAvailability(data.roomId, checkIn, checkOut, undefined, tx);
+      if (!available) {
+        throw new Error("ROOM_CONFLICT");
+      }
+
+      if (bookingCode) {
+        return tx.booking.create({
           data: {
             hotelId,
             roomId: data.roomId,
-            guestId,
+            guestId: guestId!,
             createdBy: session.user.id,
             bookingCode,
             checkInDate: checkIn,
@@ -173,61 +174,58 @@ export async function POST(req: NextRequest) {
             guest: true,
           },
         });
-      } catch (createError: any) {
-        if (createError instanceof Prisma.PrismaClientKnownRequestError && createError.code === "P2002") {
-          return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
-        }
-        throw createError;
-      }
-    } else {
-      const maxCreateAttempts = 5;
-      for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
-        bookingCode = await generateBookingCode(hotelId);
-        try {
-          booking = await prisma.booking.create({
-            data: {
-              hotelId,
-              roomId: data.roomId,
-              guestId,
-              createdBy: session.user.id,
-              bookingCode,
-              checkInDate: checkIn,
-              checkOutDate: checkOut,
-              numNights: data.numNights,
-              roomRate: data.roomRate,
-              depositAmount: data.depositAmount,
-              status: "PENDING",
-              source: data.source,
-              specialRequests: data.specialRequests,
-              internalNotes: data.internalNotes,
-            },
-            include: {
-              room: { include: { roomType: true } },
-              guest: true,
-            },
-          });
-          break;
-        } catch (createError) {
-          const target = createError instanceof Prisma.PrismaClientKnownRequestError
-            ? createError.meta?.target
-            : undefined;
-          const targetFields = Array.isArray(target)
-            ? target
-            : typeof target === "string"
-              ? [target]
-              : [];
+      } else {
+        const maxCreateAttempts = 5;
+        for (let attempt = 1; attempt <= maxCreateAttempts; attempt += 1) {
+          bookingCode = await generateBookingCode(hotelId);
+          try {
+            return await tx.booking.create({
+              data: {
+                hotelId,
+                roomId: data.roomId,
+                guestId: guestId!,
+                createdBy: session.user.id,
+                bookingCode,
+                checkInDate: checkIn,
+                checkOutDate: checkOut,
+                numNights: data.numNights,
+                roomRate: data.roomRate,
+                depositAmount: data.depositAmount,
+                status: "PENDING",
+                source: data.source,
+                specialRequests: data.specialRequests,
+                internalNotes: data.internalNotes,
+              },
+              include: {
+                room: { include: { roomType: true } },
+                guest: true,
+              },
+            });
+          } catch (createError) {
+            const target = createError instanceof Prisma.PrismaClientKnownRequestError
+              ? createError.meta?.target
+              : undefined;
+            const targetFields = Array.isArray(target)
+              ? target
+              : typeof target === "string"
+                ? [target]
+                : [];
 
-          const isBookingCodeCollision =
-            createError instanceof Prisma.PrismaClientKnownRequestError &&
-            createError.code === "P2002" &&
-            targetFields.some((field) => field.includes("bookingCode"));
+            const isBookingCodeCollision =
+              createError instanceof Prisma.PrismaClientKnownRequestError &&
+              createError.code === "P2002" &&
+              targetFields.some((field) => field.includes("bookingCode"));
 
-          if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
-            throw createError;
+            if (!isBookingCodeCollision || attempt === maxCreateAttempts) {
+              throw createError;
+            }
           }
         }
+        return null;
       }
-    }
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
 
     if (!booking) {
       return NextResponse.json(
@@ -250,6 +248,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: booking }, { status: 201 });
   } catch (error: any) {
+    if (error?.message === "ROOM_CONFLICT") {
+      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
+    }
     console.error("POST /api/bookings error:", error);
     return NextResponse.json({ error: "Lỗi hệ thống: " + (error.message || String(error)) }, { status: 500 });
   }

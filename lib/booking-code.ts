@@ -34,14 +34,18 @@ export async function generateBookingCode(_hotelId: string): Promise<string> {
 /**
  * Kiểm tra phòng còn trống trong khoảng ngày (tránh double-booking)
  * Trả về true nếu phòng AVAILABLE
+ *
+ * @param tx - Optional Prisma transaction client for atomic operations
  */
 export async function checkRoomAvailability(
   roomId: string,
   checkIn: Date,
   checkOut: Date,
-  excludeBookingId?: string
+  excludeBookingId?: string,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 ): Promise<boolean> {
-  const conflict = await prisma.booking.findFirst({
+  const db = tx ?? prisma;
+  const conflict = await db.booking.findFirst({
     where: {
       roomId,
       status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN"] },

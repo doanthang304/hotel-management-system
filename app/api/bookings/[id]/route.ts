@@ -117,13 +117,14 @@ export async function PUT(
       return NextResponse.json({ error: "Ngày trả phòng phải sau ngày nhận phòng" }, { status: 400 });
     }
 
-    const roomAvailable = await checkRoomAvailability(nextRoomId, nextCheckIn, nextCheckOut, existing.id);
-    if (!roomAvailable) {
-      return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
-    }
-
     try {
       const updated = await prisma.$transaction(async (tx) => {
+        // Check availability inside transaction to prevent race conditions
+        const roomAvailable = await checkRoomAvailability(nextRoomId, nextCheckIn, nextCheckOut, existing.id, tx);
+        if (!roomAvailable) {
+          throw new Error("ROOM_CONFLICT");
+        }
+
         await tx.guest.update({
           where: { id: existing.guestId },
           data: {
@@ -155,6 +156,8 @@ export async function PUT(
             guest: true,
           },
         });
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
 
       await prisma.auditLog.create({
@@ -171,6 +174,9 @@ export async function PUT(
 
       return NextResponse.json({ data: updated });
     } catch (updateError) {
+      if (updateError instanceof Error && updateError.message === "ROOM_CONFLICT") {
+        return NextResponse.json({ error: "Phòng đã có booking trong khoảng thời gian này" }, { status: 400 });
+      }
       if (updateError instanceof Prisma.PrismaClientKnownRequestError && updateError.code === "P2002") {
         return NextResponse.json({ error: "Mã booking này đã tồn tại trong hệ thống." }, { status: 400 });
       }

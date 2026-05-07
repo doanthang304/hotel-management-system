@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BedDouble, DoorOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BedDouble, DoorOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +25,7 @@ type RoomType = {
 type Room = {
   id: string;
   roomNumber: string;
+  roomTypeId: string;
   roomType: { name: string };
 };
 
@@ -48,6 +50,10 @@ export default function HotelSetupPage() {
   const [loadingR, setLoadingR] = useState(false);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [deletingRTypeId, setDeletingRTypeId] = useState<string | null>(null);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editRoomNumber, setEditRoomNumber] = useState("");
+  const [editRoomTypeId, setEditRoomTypeId] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const parsedRoomNumbers = useMemo(() => parseRoomNumbers(roomNumbersInput), [roomNumbersInput]);
 
@@ -172,6 +178,49 @@ export default function HotelSetupPage() {
       toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");
     } finally {
       setDeletingRoomId(null);
+    }
+  };
+
+  const openEditDialog = (room: Room) => {
+    setEditingRoom(room);
+    setEditRoomNumber(room.roomNumber);
+    setEditRoomTypeId(room.roomTypeId);
+  };
+
+  const handleEditRoom = async () => {
+    if (!editingRoom) return;
+    if (!editRoomNumber.trim()) return toast.error("Số phòng không được để trống");
+    if (!editRoomTypeId) return toast.error("Vui lòng chọn loại phòng");
+
+    // No changes made
+    if (editRoomNumber.trim() === editingRoom.roomNumber && editRoomTypeId === editingRoom.roomTypeId) {
+      setEditingRoom(null);
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/rooms/${editingRoom.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomNumber: editRoomNumber.trim(),
+          roomTypeId: editRoomTypeId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(data.message || "Cập nhật phòng thành công");
+      // Update local state
+      setRooms((prev) =>
+        prev.map((r) => (r.id === editingRoom.id ? { ...r, ...data.data } : r))
+      );
+      setEditingRoom(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật phòng");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -380,15 +429,25 @@ export default function HotelSetupPage() {
                               {room.roomType.name}
                             </span>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                            disabled={deletingRoomId === room.id}
-                            onClick={() => handleDeleteRoom(room)}
-                          >
-                            {deletingRoomId === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:bg-blue-50 hover:text-blue-600"
+                              onClick={() => openEditDialog(room)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                              disabled={deletingRoomId === room.id}
+                              onClick={() => handleDeleteRoom(room)}
+                            >
+                              {deletingRoomId === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -399,6 +458,65 @@ export default function HotelSetupPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Edit Room Dialog ── */}
+      <Dialog open={!!editingRoom} onOpenChange={(open) => { if (!open) setEditingRoom(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sửa thông tin phòng</DialogTitle>
+            <DialogDescription>
+              Thay đổi số phòng hoặc loại phòng.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-room-number">Số phòng</Label>
+              <Input
+                id="edit-room-number"
+                value={editRoomNumber}
+                onChange={(e) => setEditRoomNumber(e.target.value)}
+                placeholder="VD: 303"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-room-type">Loại phòng</Label>
+              <Select value={editRoomTypeId} onValueChange={(val) => setEditRoomTypeId(val || "")}>
+                <SelectTrigger id="edit-room-type">
+                  {editRoomTypeId ? (
+                    <span className="flex-1 text-left">
+                      {roomTypes.find((rt) => rt.id === editRoomTypeId)?.name}
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Chọn loại phòng..." />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {roomTypes.map((rt) => (
+                    <SelectItem key={rt.id} value={rt.id}>
+                      {rt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRoom(null)} disabled={savingEdit}>
+              Hủy
+            </Button>
+            <Button onClick={handleEditRoom} disabled={savingEdit}>
+              {savingEdit ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                "Lưu thay đổi"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
