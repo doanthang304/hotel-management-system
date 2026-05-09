@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarDays,
-  Users,
+  BarChart3,
   ReceiptText,
   ClipboardList,
 } from "lucide-react";
@@ -16,7 +16,7 @@ const mobileNav = [
   { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
   { href: "/calendar",       label: "Lịch phòng",       icon: CalendarDays },
   { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
-  { href: "/guests",      label: "Khách",       icon: Users },
+  { href: "/reports",      label: "Báo cáo",       icon: BarChart3 },
 ];
 
 export function BottomNav() {
