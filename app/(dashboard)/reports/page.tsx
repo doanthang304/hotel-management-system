@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import {
   addMonths,
   addWeeks,
@@ -102,35 +104,20 @@ function getRangeLabel(report: ReportResponse | null, referenceDate: Date, perio
 export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [referenceDate, setReferenceDate] = useState(new Date());
-  const [data, setData] = useState<ReportResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const query = new URLSearchParams({
+    period,
+    date: referenceDate.toISOString(),
+  });
 
-  useEffect(() => {
-    async function fetchReportData() {
-      setLoading(true);
-      try {
-        const query = new URLSearchParams({
-          period,
-          date: referenceDate.toISOString(),
-        });
-
-        const res = await fetch(`/api/reports/revenue?${query.toString()}`);
-        const json = await res.json();
-
-        if (!res.ok) {
-          throw new Error(json.error || "Không thể tải báo cáo");
-        }
-
-        setData(json.data as ReportResponse);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Lỗi hệ thống khi tải báo cáo");
-      } finally {
-        setLoading(false);
-      }
+  const { data: resData, isLoading: loading } = useSWR(
+    `/api/reports/revenue?${query.toString()}`,
+    fetcher,
+    {
+      onError: (err) => toast.error(err.message || "Lỗi hệ thống khi tải báo cáo")
     }
+  );
 
-    fetchReportData();
-  }, [period, referenceDate]);
+  const data = resData?.data as ReportResponse | null;
 
   const topRooms = useMemo(() => data?.roomPerformance.slice(0, 8) ?? [], [data]);
   const rangeLabel = useMemo(() => getRangeLabel(data, referenceDate, period), [data, period, referenceDate]);

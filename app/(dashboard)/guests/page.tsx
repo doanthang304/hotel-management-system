@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
 import { 
@@ -31,26 +33,9 @@ type Guest = {
 };
 
 export default function GuestsPage() {
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-
-  const fetchGuests = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/guests?search=${search}`);
-      const json = await res.json();
-      setGuests(json.data || []);
-    } catch (error) {
-      toast.error("Không thể tải danh sách khách hàng");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchGuests();
-  }, [search]);
+  const { data, isLoading: loading } = useSWR(`/api/guests?search=${search}`, fetcher);
+  const guests: Guest[] = data?.data || [];
 
   return (
     <div className="space-y-4 p-4 md:p-6">

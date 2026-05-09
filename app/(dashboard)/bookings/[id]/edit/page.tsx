@@ -1,6 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,26 +16,13 @@ type EditBookingPageProps = {
 export default function EditBookingPage({ params }: EditBookingPageProps) {
   const router = useRouter();
   const { id } = use(params);
-  const [booking, setBooking] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading } = useSWR(`/api/bookings/${id}`, fetcher);
+  const booking = data?.data || null;
 
-  useEffect(() => {
-    async function fetchBooking() {
-      try {
-        const res = await fetch(`/api/bookings/${id}`, { cache: "no-store" });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Không thể tải booking");
-        setBooking(json.data);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không thể tải booking");
-        router.push(`/bookings/${id}`);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchBooking();
-  }, [id, router]);
+  if (data?.error && !booking) {
+    toast.error(data.error);
+    router.push(`/bookings/${id}`);
+  }
 
   if (loading) {
     return (

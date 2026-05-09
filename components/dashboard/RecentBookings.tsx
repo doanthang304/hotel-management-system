@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
@@ -38,22 +39,8 @@ const statusLabels: Record<string, string> = {
 };
 
 export function RecentBookings() {
-  const [bookings, setBookings] = useState<BookingSummary[]>([]);
-
-  useEffect(() => {
-    async function fetchBookings() {
-      try {
-        const res = await fetch("/api/bookings?limit=5");
-        if (res.ok) {
-          const json = await res.json();
-          setBookings(json.data || []);
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    fetchBookings();
-  }, []);
+  const { data } = useSWR("/api/bookings?limit=5", fetcher);
+  const bookings: BookingSummary[] = data?.data || [];
 
   if (bookings.length === 0) {
     return (

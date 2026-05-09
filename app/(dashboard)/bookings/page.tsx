@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
@@ -59,33 +61,17 @@ const statusVariants: Record<string, string> = {
 };
 
 export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const fetchBookings = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/bookings?search=${search}`);
-      const json = await res.json();
-      setBookings(json.data || []);
-    } catch {
-      toast.error("Không thể tải danh sách booking");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBookings();
-  }, [search]);
+  const { data, isLoading: loading, mutate } = useSWR(`/api/bookings?search=${search}`, fetcher);
+  const bookings: Booking[] = data?.data || [];
 
   const handleCheckIn = async (id: string) => {
     try {
       const res = await fetch(`/api/bookings/${id}/checkin`, { method: "POST" });
       if (res.ok) {
         toast.success("Check-in thành công");
-        fetchBookings();
+        mutate();
       } else {
         const error = await res.json();
         toast.error(error.error || "Check-in thất bại");
@@ -100,7 +86,7 @@ export default function BookingsPage() {
       const res = await fetch(`/api/bookings/${id}/checkout`, { method: "POST" });
       if (res.ok) {
         toast.success("Check-out thành công");
-        fetchBookings();
+        mutate();
       } else {
         const error = await res.json();
         toast.error(error.error || "Check-out thất bại");

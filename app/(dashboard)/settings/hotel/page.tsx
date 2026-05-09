@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,8 @@ import { toast } from "sonner";
 export default function HotelSettingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const [loading, setLoading] = useState(true);
+  const { data: hotelData, isLoading: loading, mutate } = useSWR("/api/hotel", fetcher);
+
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -33,31 +36,16 @@ export default function HotelSettingsPage() {
   });
 
   useEffect(() => {
-    fetchHotelInfo();
-  }, []);
-
-  const fetchHotelInfo = async () => {
-    try {
-      const res = await fetch("/api/hotel");
-      const json = await res.json();
-      if (res.ok) {
-        setFormData({
-          name: json.data.name || "",
-          address: json.data.address || "",
-          phone: json.data.phone || "",
-          currency: json.data.currency || "VND",
-          timezone: json.data.timezone || "Asia/Ho_Chi_Minh",
-        });
-      } else {
-        toast.error(json.error || "Không thể tải thông tin khách sạn");
-      }
-    } catch (error) {
-      console.error("Error fetching hotel info:", error);
-      toast.error("Có lỗi xảy ra khi tải dữ liệu");
-    } finally {
-      setLoading(false);
+    if (hotelData?.data) {
+      setFormData({
+        name: hotelData.data.name || "",
+        address: hotelData.data.address || "",
+        phone: hotelData.data.phone || "",
+        currency: hotelData.data.currency || "VND",
+        timezone: hotelData.data.timezone || "Asia/Ho_Chi_Minh",
+      });
     }
-  };
+  }, [hotelData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +59,7 @@ export default function HotelSettingsPage() {
       const json = await res.json();
       if (res.ok) {
         toast.success("Cập nhật thông tin thành công");
+        mutate();
       } else {
         toast.error(json.error || "Cập nhật thất bại");
       }

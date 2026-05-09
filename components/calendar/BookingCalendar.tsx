@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -80,9 +82,14 @@ export function BookingCalendar() {
   }, [baseDate]);
 
   // Data state
-  const [rooms, setRooms] = useState<GanttRoom[]>([]);
-  const [events, setEvents] = useState<GanttEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading } = useSWR(
+    `/api/calendar?start=${startDate.toISOString()}&end=${endDate.toISOString()}`,
+    fetcher
+  );
+
+  const rooms: GanttRoom[] = data?.data?.rooms || [];
+  const events: GanttEvent[] = data?.data?.events || [];
+
   const [dragSelection, setDragSelection] = useState<{
     roomId: string;
     roomNumber: string;
@@ -105,29 +112,6 @@ export function BookingCalendar() {
   const totalWidthPercent = (NUM_DAYS / 7) * 100;
   // Chiều rộng mỗi cột ngày
   const dayWidthPercent = (1 / NUM_DAYS) * 100;
-
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-  const fetchData = useCallback(async (from: Date, to: Date) => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/calendar?start=${from.toISOString()}&end=${to.toISOString()}`
-      );
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setRooms(json.data.rooms ?? []);
-        setEvents(json.data.events ?? []);
-      }
-    } catch (err) {
-      console.error("Calendar fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData(startDate, endDate);
-  }, [fetchData, startDate, endDate]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const scrollToToday = useCallback((smooth = true) => {

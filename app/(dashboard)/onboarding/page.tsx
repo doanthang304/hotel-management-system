@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BedDouble, DoorOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,9 +41,13 @@ function parseRoomNumbers(input: string) {
 export default function HotelSetupPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("room-types");
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+  const { data: rtData, isLoading: loadingRtData, mutate: mutateRoomTypes } = useSWR("/api/room-types", fetcher);
+  const { data: rData, isLoading: loadingRData, mutate: mutateRooms } = useSWR("/api/rooms", fetcher);
+
+  const roomTypes: RoomType[] = rtData?.data || [];
+  const rooms: Room[] = rData?.data || [];
+  const loadingData = loadingRtData || loadingRData;
+
   const [rtName, setRtName] = useState("");
   const [rtOccupancy, setRtOccupancy] = useState("2");
   const [loadingRt, setLoadingRt] = useState(false);
@@ -56,31 +62,6 @@ export default function HotelSetupPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const parsedRoomNumbers = useMemo(() => parseRoomNumbers(roomNumbersInput), [roomNumbersInput]);
-
-  const fetchData = async () => {
-    setLoadingData(true);
-    try {
-      const [rtRes, rRes] = await Promise.all([fetch("/api/room-types"), fetch("/api/rooms")]);
-
-      if (rtRes.ok) {
-        const rtJson = await rtRes.json();
-        setRoomTypes(rtJson.data || []);
-      }
-
-      if (rRes.ok) {
-        const rJson = await rRes.json();
-        setRooms(rJson.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching setup data:", error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleCreateRoomType = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -101,7 +82,7 @@ export default function HotelSetupPage() {
 
       toast.success("Tạo loại phòng thành công");
       setRtName("");
-      setRoomTypes((prev) => [...prev, data.data]);
+      mutateRoomTypes();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     } finally {
@@ -125,8 +106,7 @@ export default function HotelSetupPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success(data.message || `Đã xóa hạng phòng ${roomType.name}`);
-      // Xóa khỏi danh sách hiển thị
-      setRoomTypes((prev) => prev.filter((item) => item.id !== roomType.id));
+      mutateRoomTypes();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xóa loại phòng");
     } finally {
@@ -155,7 +135,7 @@ export default function HotelSetupPage() {
 
       toast.success(data.message || "Tạo phòng thành công");
       setRoomNumbersInput("");
-      setRooms((prev) => [...prev, ...(data.data || [])]);
+      mutateRooms();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     } finally {
@@ -173,7 +153,7 @@ export default function HotelSetupPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success(data.message || `Đã xóa phòng ${room.roomNumber}`);
-      setRooms((prev) => prev.filter((item) => item.id !== room.id));
+      mutateRooms();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");
     } finally {
@@ -212,10 +192,7 @@ export default function HotelSetupPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success(data.message || "Cập nhật phòng thành công");
-      // Update local state
-      setRooms((prev) =>
-        prev.map((r) => (r.id === editingRoom.id ? { ...r, ...data.data } : r))
-      );
+      mutateRooms();
       setEditingRoom(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể cập nhật phòng");

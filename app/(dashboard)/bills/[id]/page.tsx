@@ -2,7 +2,9 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState, use } from "react";
+import { useState, use, useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
@@ -19,32 +21,13 @@ import { Loader2 } from "lucide-react";
 export default function BillDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
-  const [bill, setBill] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState("Tiền mặt");
-  
-  // Set giá trị mặc định khi mở Dialog
-  useEffect(() => {
-  if (bill && showConfirmPayment) {
-    setPayAmount(Number(bill.amountDue));
-  }
-  }, [bill, showConfirmPayment]);
+  const { data, isLoading: loading, mutate } = useSWR(`/api/bills/${id}`, fetcher);
+  const bill = data?.data || null;
 
-  const fetchBill = async () => {
-    try {
-      const res = await fetch(`/api/bills/${id}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      setBill(json.data);
-    } catch (error: any) {
-      toast.error(error.message || "Không thể tải chi tiết hóa đơn");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (data?.error && !bill) {
+    toast.error(data.error);
+    router.push("/bills");
+  }
 
   const handleConfirmPayment = async () => {
     if (payAmount <= 0 && bill.amountDue > 0) {
@@ -60,10 +43,9 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      
       toast.success("Thanh toán thành công!");
       setShowConfirmPayment(false);
-      fetchBill(); // Refresh data
+      mutate(); // Refresh data
     } catch (error: any) {
       toast.error(error.message || "Lỗi khi xử lý thanh toán");
     } finally {
@@ -71,9 +53,17 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showConfirmPayment, setShowConfirmPayment] = useState(false);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState("Tiền mặt");
+  
+  // Set giá trị mặc định khi mở Dialog
   useEffect(() => {
-    fetchBill();
-  }, [id]);
+    if (bill && showConfirmPayment) {
+      setPayAmount(Number(bill.amountDue));
+    }
+  }, [bill, showConfirmPayment]);
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Đang tải...</div>;
   if (!bill) return <div className="p-8 text-center text-muted-foreground">Không tìm thấy hóa đơn.</div>;

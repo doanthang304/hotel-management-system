@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { RoomStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -38,25 +39,8 @@ const statusDotColors: Record<RoomStatus, string> = {
 };
 
 export function RoomStatusGrid() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchRooms() {
-      try {
-        const res = await fetch("/api/rooms");
-        if (res.ok) {
-          const json = await res.json();
-          setRooms(json.data || []);
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchRooms();
-  }, []);
+  const { data, isLoading: loading } = useSWR("/api/rooms", fetcher);
+  const rooms: Room[] = data?.data || [];
 
   if (loading) {
     return (

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { LayoutGrid, List, BedDouble, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -32,26 +34,10 @@ const statusVariants: Record<string, string> = {
 };
 
 export default function RoomsPage() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
-  const fetchRooms = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/rooms");
-      const json = await res.json();
-      setRooms(json.data || []);
-    } catch {
-      toast.error("Không thể tải danh sách phòng");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRooms();
-  }, []);
+  const { data, isLoading: loading, mutate } = useSWR("/api/rooms", fetcher);
+  const rooms: Room[] = data?.data || [];
 
   const handleDeleteRoom = async (room: Room) => {
     if (!confirm(`Xóa phòng ${room.roomNumber}?`)) return;
@@ -63,7 +49,7 @@ export default function RoomsPage() {
       if (!res.ok) throw new Error(json.error || "Không thể xóa phòng");
 
       toast.success(json.message || `Đã xóa phòng ${room.roomNumber}`);
-      setRooms((prev) => prev.filter((item) => item.id !== room.id));
+      mutate();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thể xóa phòng");
     } finally {

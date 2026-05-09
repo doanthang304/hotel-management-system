@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { formatVND } from "@/lib/utils";
 import { 
   Table, 
@@ -24,25 +26,8 @@ type Service = {
 };
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchServices = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/services");
-      const json = await res.json();
-      setServices(json.data || []);
-    } catch (error) {
-      toast.error("Không thể tải danh sách dịch vụ");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchServices();
-  }, []);
+  const { data, isLoading: loading } = useSWR("/api/services", fetcher);
+  const services: Service[] = data?.data || [];
 
   return (
     <div className="space-y-4 p-4 md:p-6">

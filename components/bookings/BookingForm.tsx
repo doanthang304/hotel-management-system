@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -183,7 +185,8 @@ function toDateOnlyString(date: Date) {
 export function BookingForm({ mode = "create", bookingId, initialData }: BookingFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const { data: roomsData } = useSWR("/api/rooms", fetcher);
+  const rooms: RoomOption[] = roomsData?.data || [];
   const [loading, setLoading] = useState(false);
   const initializedFromQuery = useRef(false);
 
@@ -225,15 +228,7 @@ export function BookingForm({ mode = "create", bookingId, initialData }: Booking
   const totalAmount = numNights * watchRoomRate * roomCount;
   const remaining = Math.max(0, totalAmount - (watchDeposit ?? 0));
 
-  useEffect(() => {
-    async function fetchRooms() {
-      const res = await fetch("/api/rooms", { cache: "no-store" });
-      const json = await res.json();
-      setRooms(json.data || []);
-    }
 
-    fetchRooms();
-  }, []);
 
   useEffect(() => {
     if (!initialData) return;

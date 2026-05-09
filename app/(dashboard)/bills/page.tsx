@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
@@ -46,25 +48,8 @@ const statusVariants: Record<string, string> = {
 };
 
 export default function BillsPage() {
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchBills = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/bills");
-      const json = await res.json();
-      setBills(json.data || []);
-    } catch (error) {
-      toast.error("Không thể tải danh sách hóa đơn");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBills();
-  }, []);
+  const { data, isLoading: loading } = useSWR("/api/bills", fetcher);
+  const bills: Bill[] = data?.data || [];
 
   return (
     <div className="space-y-4 p-4 md:p-6">

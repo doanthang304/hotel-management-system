@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useState, use } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { formatVND } from "@/lib/utils";
@@ -52,8 +54,9 @@ const statusVariants: Record<string, string> = {
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
-  const [booking, setBooking] = useState<BookingWithRelations | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, mutate } = useSWR(`/api/bookings/${id}`, fetcher);
+  const booking: BookingWithRelations | null = data?.data || null;
+
   const [addingService, setAddingService] = useState(false);
   const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({
@@ -62,25 +65,10 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     quantity: 1,
   });
 
-  const fetchBooking = async () => {
-    try {
-      const res = await fetch(`/api/bookings/${id}`, { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      setBooking(json.data as BookingWithRelations);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Không thể tải chi tiết booking";
-      toast.error(message);
-      router.push("/bookings");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchBooking();
-  }, [id]);
+  if (data?.error && !booking) {
+    toast.error(data.error);
+    router.push("/bookings");
+  }
 
   const handleAddService = async () => {
     if (!newService.serviceName.trim()) {
@@ -113,7 +101,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
 
       toast.success("Đã thêm dịch vụ vào booking");
       setNewService({ serviceName: "", unitPrice: 0, quantity: 1 });
-      fetchBooking();
+      mutate();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Lỗi hệ thống";
       toast.error(message);
@@ -137,7 +125,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
       }
 
       toast.success("Đã xóa dịch vụ");
-      fetchBooking();
+      mutate();
     } catch (error: any) {
       toast.error(error.message || "Lỗi hệ thống");
     } finally {
@@ -150,7 +138,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
       const res = await fetch(`/api/bookings/${id}/${action}`, { method: "POST" });
       if (res.ok) {
         toast.success("Thao tác thành công");
-        fetchBooking();
+        mutate();
       } else {
         const error = await res.json();
         toast.error(error.error || "Thao tác thất bại");

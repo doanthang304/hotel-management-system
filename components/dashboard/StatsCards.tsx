@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BedDouble, CheckCircle, CalendarCheck, LogOut, Wrench, Loader2 } from "lucide-react";
 
@@ -21,25 +22,8 @@ function StatSkeleton() {
 }
 
 export function StatsCards() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("/api/dashboard/stats");
-        const json = await res.json();
-        if (res.ok && json.data) {
-          setStats(json.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStats();
-  }, []);
+  const { data, isLoading: loading } = useSWR("/api/dashboard/stats", fetcher);
+  const stats: Stats | null = data?.data || null;
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
