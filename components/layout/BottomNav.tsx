@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  BedDouble,
+  CalendarDays,
   Users,
   ReceiptText,
   ClipboardList,
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const mobileNav = [
   { href: "/dashboard",   label: "Tổng quan",   icon: LayoutDashboard },
   { href: "/bookings",    label: "Bookings",    icon: ClipboardList },
-  { href: "/rooms",       label: "Phòng",       icon: BedDouble },
+  { href: "/calendar",       label: "Lịch phòng",       icon: CalendarDays },
   { href: "/bills",       label: "Hóa đơn",     icon: ReceiptText },
   { href: "/guests",      label: "Khách",       icon: Users },
 ];
