@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BedDouble, DoorOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -406,9 +406,9 @@ export default function HotelSetupPage() {
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>Danh sách phòng ({rooms.length})</CardTitle>
-                  <Button variant="outline" nativeButton={false} render={<Link href="/rooms" />}>
+                  <Link href="/rooms" className={buttonVariants({ variant: "outline" })}>
                     Xem trang phòng
-                  </Button>
+                  </Link>
                 </div>
               </CardHeader>
               <CardContent>

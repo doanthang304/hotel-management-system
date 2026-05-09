@@ -5,7 +5,7 @@ import Link from "next/link";
 import { LayoutGrid, List, BedDouble, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RoomStatusGrid } from "@/components/dashboard/RoomStatusGrid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -75,9 +75,9 @@ export default function RoomsPage() {
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-2xl font-bold tracking-tight">Quản lý Phòng</h2>
-        <Button render={<Link href="/onboarding" />} nativeButton={false} className="min-h-[44px] shrink-0">
+        <Link href="/onboarding" className={buttonVariants({ className: "min-h-[44px] shrink-0" })}>
           <Plus className="mr-2 h-4 w-4" /> Thêm phòng
-        </Button>
+        </Link>
       </div>
 
       <Tabs defaultValue="grid" className="space-y-4">

@@ -12,7 +12,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Eye, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -107,9 +107,9 @@ export default function BillsPage() {
                 <span className={bill.amountDue > 0 ? "text-red-500 font-semibold text-sm" : "text-green-500 font-semibold text-sm"}>
                   Còn lại: {formatVND(bill.amountDue)}
                 </span>
-                <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bills/${bill.id}`} />}>
+                <Link href={`/bills/${bill.id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "min-h-[36px]" })}>
                   <Eye className="h-3.5 w-3.5 mr-1" /> Xem
-                </Button>
+                </Link>
               </div>
             </div>
           ))
@@ -164,13 +164,12 @@ export default function BillsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" 
-                            size="icon" 
-                            nativeButton={false} 
-                            render={<Link href={`/bills/${bill.id}`} 
-                            />}>
+                    <Link 
+                      href={`/bills/${bill.id}`} 
+                      className={buttonVariants({ variant: "ghost", size: "icon" })}
+                    >
                       <Eye className="h-4 w-4" />
-                    </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))

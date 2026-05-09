@@ -114,9 +114,9 @@ export default function BookingsPage() {
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-2xl font-bold tracking-tight">Quản lý đặt phòng</h2>
-        <Button render={<Link href="/bookings/new" />} className="min-h-[44px] shrink-0" nativeButton={false}>
+        <Link href="/bookings/new" className={buttonVariants({ className: "min-h-[44px] shrink-0" })}>
           <Plus className="mr-2 h-4 w-4" /> Tạo booking
-        </Button>
+        </Link>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -162,12 +162,12 @@ export default function BookingsPage() {
               <div className="flex items-center justify-between border-t pt-1">
                 <span className="text-sm font-semibold">{formatVND(booking.roomRate * booking.numNights)}</span>
                 <div className="flex flex-wrap gap-1">
-                  <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}`} />}>
+                  <Link href={`/bookings/${booking.id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "min-h-[36px]" })}>
                     <Eye className="mr-1 h-3.5 w-3.5" /> Xem
-                  </Button>
-                  <Button variant="outline" size="sm" className="min-h-[36px]" nativeButton={false} render={<Link href={`/bookings/${booking.id}/edit`} />}>
+                  </Link>
+                  <Link href={`/bookings/${booking.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm", className: "min-h-[36px]" })}>
                     <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
-                  </Button>
+                  </Link>
                   {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                     <Button size="sm" className="min-h-[36px]" onClick={() => handleCheckIn(booking.id)}>
                       <CheckCircle className="mr-1 h-3.5 w-3.5" /> Check-in
@@ -238,25 +238,19 @@ export default function BookingsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-8 px-2"
-                        nativeButton={false} 
-                        render={<Link href={`/bookings/${booking.id}`} />}
+                      <Link 
+                        href={`/bookings/${booking.id}`}
+                        className={buttonVariants({ variant: "outline", size: "sm", className: "h-8 px-2" })}
                       >
                         <Eye className="mr-1 h-3.5 w-3.5" /> Chi tiết
-                      </Button>
+                      </Link>
                       
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-8 px-2"
-                        nativeButton={false} 
-                        render={<Link href={`/bookings/${booking.id}/edit`} />}
+                      <Link 
+                        href={`/bookings/${booking.id}/edit`}
+                        className={buttonVariants({ variant: "outline", size: "sm", className: "h-8 px-2" })}
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
-                      </Button>
+                      </Link>
 
                       {(booking.status === "CONFIRMED" || booking.status === "PENDING") && (
                         <Button 
