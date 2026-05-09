@@ -2,7 +2,7 @@
 
 Đây là một dự án nhỏ tôi tự code vì sở thích và để phục vụ mục đích cá nhân, học hỏi công nghệ mới, cũng như thử nghiệm quy trình quản lý một khách sạn quy mô nhỏ. Dự án không đặt nặng tính thương mại mà tập trung vào sự gọn nhẹ, tối ưu và trải nghiệm người dùng mượt mà.
 
-![Demo dự án](public/HMS-demo.mp4)
+![Demo dự án](hms-video.webp)
 
 ---
 
