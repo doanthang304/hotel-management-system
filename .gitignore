@@ -10,10 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-repomix-output.xml
-tiny_hms_ide_prompt.md
-AGENTS.md 
-CLAUDE.md
 # testing
 /coverage
 
@@ -23,20 +19,26 @@ CLAUDE.md
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files (can opt-in for committing if needed)
 .env*
-.env.local
+!.env.example
 
 # vercel
 .vercel
@@ -45,6 +47,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# prisma
 /app/generated/prisma
 
-
+# local agent / temporary config files
+repomix-output.xml
+tiny_hms_ide_prompt.md
+AGENTS.md
+CLAUDE.md
