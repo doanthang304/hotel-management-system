@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -14,7 +16,9 @@ import {
   Building2,
   LogOut,
   Hotel,
-  BarChart3
+  BarChart3,
+  Sun,
+  Moon
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -41,6 +45,12 @@ const settingsNav = [
 
 export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -98,6 +108,28 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                 {label}
               </Button>
             ))}
+
+            {mounted ? (
+              <Button
+                variant="ghost"
+                className="min-h-[44px] w-full justify-start"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "dark" ? (
+                  <>
+                    <Sun className="mr-2 h-4 w-4 text-amber-500 animate-in spin-in-90 duration-300" />
+                    Giao diện: Sáng
+                  </>
+                ) : (
+                  <>
+                    <Moon className="mr-2 h-4 w-4 text-slate-500 dark:text-slate-400 animate-in spin-in-90 duration-300" />
+                    Giao diện: Tối
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="h-[44px] w-full animate-pulse rounded-md bg-muted/40" />
+            )}
 
             <Button
               variant="ghost"

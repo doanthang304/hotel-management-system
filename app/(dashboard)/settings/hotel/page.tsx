@@ -5,21 +5,28 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Save, ArrowLeft, Building2, KeyRound, Mail } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Building2, KeyRound, Mail, Sun, Moon, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 export default function HotelSettingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { data: hotelData, isLoading: loading, mutate } = useSWR("/api/hotel", fetcher);
+  const { theme, setTheme } = useTheme();
 
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -241,6 +248,59 @@ export default function HotelSettingsPage() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* ── Theme Settings Card ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Palette className="h-5 w-5 text-primary" />
+              Giao diện hệ thống
+            </CardTitle>
+            <CardDescription>
+              Tùy chỉnh chế độ hiển thị sáng/tối phù hợp với môi trường làm việc của bạn.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-1">
+                <Label htmlFor="theme-toggle" className="text-base font-semibold">Chế độ tối (Dark Mode)</Label>
+                <p className="text-sm text-muted-foreground">
+                  Chuyển đổi toàn bộ giao diện của ứng dụng sang tông màu tối để bảo vệ mắt.
+                </p>
+              </div>
+              
+              {mounted ? (
+                <button
+                  id="theme-toggle"
+                  type="button"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className={`
+                    relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+                    transition-colors duration-300 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                    ${theme === "dark" ? "bg-primary" : "bg-muted-foreground/30"}
+                  `}
+                >
+                  <span className="sr-only">Toggle dark mode</span>
+                  <span
+                    className={`
+                      pointer-events-none flex h-6 w-6 items-center justify-center rounded-full bg-background shadow-lg ring-0 
+                      transition-transform duration-300 ease-in-out
+                      ${theme === "dark" ? "translate-x-7" : "translate-x-0"}
+                    `}
+                  >
+                    {theme === "dark" ? (
+                      <Moon className="h-3.5 w-3.5 text-primary" />
+                    ) : (
+                      <Sun className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                  </span>
+                </button>
+              ) : (
+                <div className="h-7 w-14 rounded-full bg-muted animate-pulse" />
+              )}
+            </div>
           </CardContent>
         </Card>
 
