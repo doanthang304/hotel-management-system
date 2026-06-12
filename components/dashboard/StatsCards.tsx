@@ -31,7 +31,7 @@ export function StatsCards() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Đang sử dụng</CardTitle>
-          <BedDouble className="h-5 w-5 text-(--status-occupied)" />
+          <BedDouble className="h-5 w-5 text-[var(--status-occupied)]" />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -52,13 +52,13 @@ export function StatsCards() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Phòng trống</CardTitle>
-          <CheckCircle className="h-5 w-5 text-(--status-available)" />
+          <CheckCircle className="h-5 w-5 text-[var(--status-available)]" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold tabular-nums text-(--status-available)">
+            <div className="text-2xl font-bold tabular-nums text-[var(--status-available)]">
               {stats?.availableRooms ?? 0}
             </div>
           )}
@@ -70,13 +70,13 @@ export function StatsCards() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Check-in hôm nay</CardTitle>
-          <CalendarCheck className="h-5 w-5 text-(--status-confirmed)" />
+          <CalendarCheck className="h-5 w-5 text-[var(--status-confirmed)]" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold tabular-nums text-(--status-confirmed)">
+            <div className="text-2xl font-bold tabular-nums text-[var(--status-confirmed)]">
               {stats?.checkInsToday ?? 0}
             </div>
           )}
@@ -88,13 +88,13 @@ export function StatsCards() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Check-out hôm nay</CardTitle>
-          <LogOut className="h-5 w-5 text-(--status-maintenance)" />
+          <LogOut className="h-5 w-5 text-[var(--status-maintenance)]" />
         </CardHeader>
         <CardContent>
           {loading ? (
             <StatSkeleton />
           ) : (
-            <div className="text-2xl font-bold tabular-nums text-(--status-maintenance)">
+            <div className="text-2xl font-bold tabular-nums text-[var(--status-maintenance)]">
               {stats?.checkOutsToday ?? 0}
             </div>
           )}

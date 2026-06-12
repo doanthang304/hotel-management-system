@@ -32,10 +32,10 @@ const statusLabels: Record<RoomStatus, string> = {
 };
 
 const statusDotColors: Record<RoomStatus, string> = {
-  AVAILABLE: "bg-(--status-available)",
-  OCCUPIED: "bg-(--status-occupied)",
-  MAINTENANCE: "bg-(--status-maintenance)",
-  BLOCKED: "bg-(--status-blocked)",
+  AVAILABLE: "bg-[var(--status-available)]",
+  OCCUPIED: "bg-[var(--status-occupied)]",
+  MAINTENANCE: "bg-[var(--status-maintenance)]",
+  BLOCKED: "bg-[var(--status-blocked)]",
 };
 
 export function RoomStatusGrid() {

@@ -160,7 +160,7 @@ export default function BookingsPage() {
                     </Button>
                   )}
                   {booking.status === "CHECKED_IN" && (
-                    <Button size="sm" variant="outline" className="min-h-[36px] border-(--status-maintenance) text-(--status-maintenance)" onClick={() => handleCheckOut(booking.id)}>
+                    <Button size="sm" variant="outline" className="min-h-[36px] border-[var(--status-maintenance)] text-[var(--status-maintenance)]" onClick={() => handleCheckOut(booking.id)}>
                       <LogOut className="mr-1 h-3.5 w-3.5" /> Check-out
                     </Button>
                   )}
