@@ -55,3 +55,9 @@ repomix-output.xml
 tiny_hms_ide_prompt.md
 AGENTS.md
 CLAUDE.md
+
+# playwright
+/playwright-report/
+/test-results/
+/playwright/.auth/
+
